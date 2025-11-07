@@ -1,0 +1,4 @@
+.env
+.venv
+logs/voice_agent.log
+src\logs\voice_agent.log
