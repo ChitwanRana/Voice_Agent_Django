@@ -1,7 +1,8 @@
 from django.urls import path
-from . import views
+from .views import index, api_ask, reset_context
 
 urlpatterns = [
-    path("", views.index, name="voice_index"),
-    path("ask/", views.api_ask, name="voice_api_ask"),
+    path('', index, name='voice_index'),
+    path('ask/', api_ask, name='api_ask'),
+    path('reset/', reset_context, name='reset_context'),
 ]

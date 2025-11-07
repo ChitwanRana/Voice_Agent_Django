@@ -328,6 +328,18 @@
         width: 100%;
       }
     }
+
+
+        #resetBtn {
+      background: linear-gradient(135deg, #dc3545 0%, #b02a37 100%);
+      color: white;
+      box-shadow: 0 4px 15px rgba(220, 53, 69, 0.4);
+    }
+
+    #resetBtn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(220, 53, 69, 0.6);
+    }
   </style>
 </head>
 <body>
@@ -355,16 +367,13 @@
 
     <div class="controls">
       <div class="listening-animation" id="listeningAnimation">
-        <div class="bar"></div>
-        <div class="bar"></div>
-        <div class="bar"></div>
-        <div class="bar"></div>
-        <div class="bar"></div>
+        <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
       </div>
       <div class="button-group">
         <button id="startBtn">🎤 Start Listening</button>
         <button id="stopBtn" disabled>⏹️ Stop</button>
         <button id="clearBtn">🗑️ Clear Chat</button>
+        <button id="resetBtn">♻️ Reset Conversation</button>
       </div>
     </div>
   </div>
@@ -373,6 +382,7 @@
     const startBtn = document.getElementById('startBtn');
     const stopBtn = document.getElementById('stopBtn');
     const clearBtn = document.getElementById('clearBtn');
+    const resetBtn = document.getElementById('resetBtn');
     const statusIndicator = document.getElementById('statusIndicator');
     const statusText = document.getElementById('statusText');
     const chatContainer = document.getElementById('chatContainer');
@@ -380,55 +390,115 @@
     const listeningAnimation = document.getElementById('listeningAnimation');
 
     let conversationHistory = [];
+    const MAX_CLIENT_HISTORY = 50; // trim client-side display history
 
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      statusText.textContent = 'Browser does not support Web Speech API. Please use Chrome.';
-      startBtn.disabled = true;
+    function updateStatus(state, text) {
+      statusText.textContent = text;
+      statusIndicator.className = 'status-indicator ' + state;
     }
 
+    function addMessage(role, content) {
+      if (emptyState.style.display !== 'none') emptyState.style.display = 'none';
+      const time = new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+      const messageDiv = document.createElement('div');
+      messageDiv.className = `message ${role}-message`;
+      messageDiv.innerHTML = `
+        <div class="message-header">
+          <div class="message-avatar ${role}-avatar">${role === 'user' ? '👤' : '🤖'}</div>
+          <div class="message-name">${role === 'user' ? 'You' : 'AI Assistant'}</div>
+          <div class="message-time">${time}</div>
+        </div>
+        <div class="message-bubble">${content}</div>
+      `;
+      chatContainer.appendChild(messageDiv);
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+      conversationHistory.push({ role, content, time });
+      if (conversationHistory.length > MAX_CLIENT_HISTORY) {
+        conversationHistory = conversationHistory.slice(-MAX_CLIENT_HISTORY);
+      }
+    }
+
+    function speakText(text) {
+      if (!window.speechSynthesis) { updateStatus('idle','Ready to listen'); return; }
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = 'en-US';
+      utter.onend = () => updateStatus('idle','Ready to listen');
+      utter.onerror = () => updateStatus('idle','Ready to listen');
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(utter);
+    }
+
+    async function safeJson(res) {
+      const ct = res.headers.get('content-type') || '';
+      if (!ct.includes('application/json')) {
+        const text = await res.text();
+        throw new Error('Non-JSON response: ' + text.slice(0,120));
+      }
+      return res.json();
+    }
+
+    async function sendTextToServer(text) {
+      updateStatus('processing','AI is thinking...');
+      try {
+        const res = await fetch("{% url 'api_ask' %}", {
+          method: 'POST',
+          headers: { 'Content-Type':'application/json' },
+          body: JSON.stringify({ text })
+        });
+        const data = await safeJson(res);
+        if (!res.ok || data.error) {
+          addMessage('ai','❌ Error: ' + (data.error || res.status));
+          updateStatus('idle','Ready to listen');
+          return;
+        }
+        addMessage('ai', data.reply);
+        updateStatus('speaking','AI is speaking...');
+        speakText(data.reply);
+      } catch (err) {
+        addMessage('ai','❌ Request failed: ' + err.message);
+        updateStatus('idle','Ready to listen');
+      }
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     let recognition;
-    if (SpeechRecognition) {
+    if (!SpeechRecognition) {
+      statusText.textContent = 'Browser does not support Web Speech API. Use Chrome.';
+      startBtn.disabled = true;
+    } else {
       recognition = new SpeechRecognition();
       recognition.lang = 'en-US';
       recognition.interimResults = false;
       recognition.maxAlternatives = 1;
 
       recognition.onstart = () => {
-        updateStatus('listening', 'Listening...');
+        updateStatus('listening','Listening...');
         startBtn.disabled = true;
         stopBtn.disabled = false;
         listeningAnimation.classList.add('active');
       };
-
-      recognition.onresult = (event) => {
-        const text = event.results[0][0].transcript;
+      recognition.onresult = (e) => {
+        const text = e.results[0][0].transcript;
         addMessage('user', text);
         sendTextToServer(text);
       };
-
       recognition.onerror = (e) => {
-        updateStatus('idle', 'Error: ' + e.error);
+        addMessage('ai','⚠️ Mic error: ' + e.error);
+        updateStatus('idle','Ready to listen');
         startBtn.disabled = false;
         stopBtn.disabled = true;
         listeningAnimation.classList.remove('active');
       };
-
       recognition.onend = () => {
-        updateStatus('idle', 'Ready to listen');
+        updateStatus('idle','Ready to listen');
         startBtn.disabled = false;
         stopBtn.disabled = true;
         listeningAnimation.classList.remove('active');
       };
     }
 
-    startBtn.addEventListener('click', () => {
-      recognition && recognition.start();
-    });
-
-    stopBtn.addEventListener('click', () => {
-      recognition && recognition.stop();
-    });
+    startBtn.addEventListener('click', () => recognition && recognition.start());
+    stopBtn.addEventListener('click', () => recognition && recognition.stop());
 
     clearBtn.addEventListener('click', () => {
       conversationHistory = [];
@@ -437,90 +507,27 @@
       chatContainer.appendChild(emptyState);
     });
 
-    function updateStatus(state, text) {
-      statusText.textContent = text;
-      statusIndicator.className = 'status-indicator ' + state;
-    }
-
-    function addMessage(role, content) {
-      if (emptyState.style.display !== 'none') {
-        emptyState.style.display = 'none';
-      }
-
-      const time = new Date().toLocaleTimeString('en-US', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      });
-
-      const messageDiv = document.createElement('div');
-      messageDiv.className = `message ${role}-message`;
-      
-      messageDiv.innerHTML = `
-        <div class="message-header">
-          <div class="message-avatar ${role}-avatar">
-            ${role === 'user' ? '👤' : '🤖'}
-          </div>
-          <div class="message-name">${role === 'user' ? 'You' : 'AI Assistant'}</div>
-          <div class="message-time">${time}</div>
-        </div>
-        <div class="message-bubble">${content}</div>
-      `;
-
-      chatContainer.appendChild(messageDiv);
-      chatContainer.scrollTop = chatContainer.scrollHeight;
-
-      conversationHistory.push({ role, content, time });
-    }
-
-    async function sendTextToServer(text) {
-      updateStatus('processing', 'AI is thinking...');
+    resetBtn.addEventListener('click', async () => {
+      updateStatus('processing','Resetting conversation...');
       try {
-        const res = await fetch(window.location.pathname + 'ask/', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ text })
-        });
-        const data = await res.json();
-        
-        if (data.error) {
-          addMessage('ai', '❌ Error: ' + data.error);
-          updateStatus('idle', 'Ready to listen');
-          return;
+        const res = await fetch("{% url 'reset_context' %}", { method: 'POST' });
+        const data = await safeJson(res);
+        if (res.ok && data.status === 'context reset') {
+          conversationHistory = [];
+          chatContainer.innerHTML = '';
+          emptyState.style.display = 'block';
+          chatContainer.appendChild(emptyState);
+          addMessage('ai','🧠 Conversation reset successfully!');
+        } else {
+          addMessage('ai','⚠️ Reset failed: ' + (data.error || res.status));
         }
-        
-        addMessage('ai', data.reply);
-        updateStatus('speaking', 'AI is speaking...');
-        speakText(data.reply);
       } catch (err) {
-        addMessage('ai', '❌ Request failed: ' + err);
-        updateStatus('idle', 'Ready to listen');
+        addMessage('ai','❌ Reset failed: ' + err.message);
+      } finally {
+        updateStatus('idle','Ready to listen');
       }
-    }
+    });
 
-    function speakText(text) {
-      if (!window.speechSynthesis) {
-        updateStatus('idle', 'Ready to listen');
-        return;
-      }
-      
-      const utter = new SpeechSynthesisUtterance(text);
-      utter.lang = 'en-US';
-      
-      utter.onend = () => {
-        updateStatus('idle', 'Ready to listen');
-      };
-      
-      utter.onerror = () => {
-        updateStatus('idle', 'Ready to listen');
-      };
-      
-      window.speechSynthesis.cancel();
-      window.speechSynthesis.speak(utter);
-    }
-
-    // Initialize empty state
     emptyState.style.display = 'block';
   </script>
 </body>
