@@ -2,44 +2,388 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Voice Assistant</title>
+  <title>AI Voice Assistant</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body { font-family: Arial, sans-serif; margin: 2rem; }
-    #status { margin-top: 1rem; }
-    #transcript, #reply { margin-top: 0.5rem; padding: 0.5rem; border: 1px solid #ddd; min-height: 2rem; }
-    button { padding: 0.6rem 1rem; margin-right: .5rem; }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 900px;
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      height: 90vh;
+      max-height: 800px;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 25px 30px;
+      text-align: center;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .header h1 {
+      font-size: 28px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .header .subtitle {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+
+    .status-bar {
+      background: #f8f9fa;
+      padding: 12px 30px;
+      border-bottom: 1px solid #e0e0e0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .status-indicator {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #6c757d;
+      animation: pulse 2s infinite;
+    }
+
+    .status-indicator.listening {
+      background: #28a745;
+    }
+
+    .status-indicator.processing {
+      background: #ffc107;
+    }
+
+    .status-indicator.speaking {
+      background: #17a2b8;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .status-text {
+      font-size: 14px;
+      color: #495057;
+      font-weight: 500;
+    }
+
+    .chat-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 30px;
+      background: #f8f9fa;
+    }
+
+    .chat-container::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .chat-container::-webkit-scrollbar-track {
+      background: #f1f1f1;
+    }
+
+    .chat-container::-webkit-scrollbar-thumb {
+      background: #888;
+      border-radius: 4px;
+    }
+
+    .message {
+      margin-bottom: 20px;
+      animation: slideIn 0.3s ease-out;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .message-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .message-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      color: white;
+      font-size: 16px;
+    }
+
+    .user-avatar {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .ai-avatar {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+
+    .message-name {
+      font-weight: 600;
+      color: #343a40;
+    }
+
+    .message-time {
+      font-size: 12px;
+      color: #6c757d;
+      margin-left: auto;
+    }
+
+    .message-bubble {
+      padding: 15px 18px;
+      border-radius: 15px;
+      line-height: 1.6;
+      max-width: 85%;
+    }
+
+    .user-message .message-bubble {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      margin-left: 46px;
+      border-bottom-left-radius: 4px;
+    }
+
+    .ai-message .message-bubble {
+      background: white;
+      color: #343a40;
+      margin-left: 46px;
+      border-bottom-left-radius: 4px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .controls {
+      padding: 25px 30px;
+      background: white;
+      border-top: 1px solid #e0e0e0;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-bottom: 15px;
+    }
+
+    button {
+      padding: 14px 32px;
+      border: none;
+      border-radius: 25px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    #startBtn {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    #startBtn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+    }
+
+    #stopBtn {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      color: white;
+      box-shadow: 0 4px 15px rgba(245, 87, 108, 0.4);
+    }
+
+    #stopBtn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(245, 87, 108, 0.6);
+    }
+
+    #clearBtn {
+      background: #6c757d;
+      color: white;
+      padding: 10px 20px;
+      font-size: 13px;
+    }
+
+    #clearBtn:hover {
+      background: #5a6268;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #6c757d;
+    }
+
+    .empty-state-icon {
+      font-size: 64px;
+      margin-bottom: 20px;
+      opacity: 0.3;
+    }
+
+    .empty-state-text {
+      font-size: 18px;
+      font-weight: 500;
+      margin-bottom: 10px;
+    }
+
+    .empty-state-subtext {
+      font-size: 14px;
+      opacity: 0.7;
+    }
+
+    .listening-animation {
+      display: none;
+      justify-content: center;
+      align-items: center;
+      gap: 5px;
+      margin-top: 10px;
+    }
+
+    .listening-animation.active {
+      display: flex;
+    }
+
+    .bar {
+      width: 4px;
+      height: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 2px;
+      animation: wave 1s ease-in-out infinite;
+    }
+
+    .bar:nth-child(2) { animation-delay: 0.1s; }
+    .bar:nth-child(3) { animation-delay: 0.2s; }
+    .bar:nth-child(4) { animation-delay: 0.3s; }
+    .bar:nth-child(5) { animation-delay: 0.4s; }
+
+    @keyframes wave {
+      0%, 100% { height: 20px; }
+      50% { height: 40px; }
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        height: 100vh;
+        max-height: 100vh;
+        border-radius: 0;
+      }
+
+      .header h1 {
+        font-size: 24px;
+      }
+
+      .button-group {
+        flex-direction: column;
+      }
+
+      button {
+        width: 100%;
+      }
+    }
   </style>
 </head>
 <body>
-  <h1>Voice Assistant</h1>
+  <div class="container">
+    <div class="header">
+      <h1>
+        <span>🤖</span>
+        AI Voice Assistant
+      </h1>
+      <div class="subtitle">Powered by Azure OpenAI & Cognitive Services</div>
+    </div>
 
-  <div>
-    <button id="startBtn">Start Listening</button>
-    <button id="stopBtn" disabled>Stop</button>
-  </div>
+    <div class="status-bar">
+      <div class="status-indicator" id="statusIndicator"></div>
+      <div class="status-text" id="statusText">Ready to listen</div>
+    </div>
 
-  <div id="status">Status: idle</div>
+    <div class="chat-container" id="chatContainer">
+      <div class="empty-state" id="emptyState">
+        <div class="empty-state-icon">🎤</div>
+        <div class="empty-state-text">Start a Conversation</div>
+        <div class="empty-state-subtext">Click "Start Listening" to begin talking with your AI assistant</div>
+      </div>
+    </div>
 
-  <div>
-    <h3>Transcript</h3>
-    <div id="transcript"></div>
-  </div>
-
-  <div>
-    <h3>AI Reply</h3>
-    <div id="reply"></div>
+    <div class="controls">
+      <div class="listening-animation" id="listeningAnimation">
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+      </div>
+      <div class="button-group">
+        <button id="startBtn">🎤 Start Listening</button>
+        <button id="stopBtn" disabled>⏹️ Stop</button>
+        <button id="clearBtn">🗑️ Clear Chat</button>
+      </div>
+    </div>
   </div>
 
   <script>
     const startBtn = document.getElementById('startBtn');
     const stopBtn = document.getElementById('stopBtn');
-    const statusEl = document.getElementById('status');
-    const transcriptEl = document.getElementById('transcript');
-    const replyEl = document.getElementById('reply');
+    const clearBtn = document.getElementById('clearBtn');
+    const statusIndicator = document.getElementById('statusIndicator');
+    const statusText = document.getElementById('statusText');
+    const chatContainer = document.getElementById('chatContainer');
+    const emptyState = document.getElementById('emptyState');
+    const listeningAnimation = document.getElementById('listeningAnimation');
+
+    let conversationHistory = [];
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      statusEl.textContent = 'Browser does not support Web Speech API. Use Chrome.';
+      statusText.textContent = 'Browser does not support Web Speech API. Please use Chrome.';
       startBtn.disabled = true;
     }
 
@@ -51,33 +395,34 @@
       recognition.maxAlternatives = 1;
 
       recognition.onstart = () => {
-        statusEl.textContent = 'Listening...';
+        updateStatus('listening', 'Listening...');
         startBtn.disabled = true;
         stopBtn.disabled = false;
+        listeningAnimation.classList.add('active');
       };
 
       recognition.onresult = (event) => {
         const text = event.results[0][0].transcript;
-        transcriptEl.textContent = text;
+        addMessage('user', text);
         sendTextToServer(text);
       };
 
       recognition.onerror = (e) => {
-        statusEl.textContent = 'Error: ' + e.error;
+        updateStatus('idle', 'Error: ' + e.error);
         startBtn.disabled = false;
         stopBtn.disabled = true;
+        listeningAnimation.classList.remove('active');
       };
 
       recognition.onend = () => {
-        statusEl.textContent = 'Idle';
+        updateStatus('idle', 'Ready to listen');
         startBtn.disabled = false;
         stopBtn.disabled = true;
+        listeningAnimation.classList.remove('active');
       };
     }
 
     startBtn.addEventListener('click', () => {
-      transcriptEl.textContent = '';
-      replyEl.textContent = '';
       recognition && recognition.start();
     });
 
@@ -85,8 +430,50 @@
       recognition && recognition.stop();
     });
 
+    clearBtn.addEventListener('click', () => {
+      conversationHistory = [];
+      chatContainer.innerHTML = '';
+      emptyState.style.display = 'block';
+      chatContainer.appendChild(emptyState);
+    });
+
+    function updateStatus(state, text) {
+      statusText.textContent = text;
+      statusIndicator.className = 'status-indicator ' + state;
+    }
+
+    function addMessage(role, content) {
+      if (emptyState.style.display !== 'none') {
+        emptyState.style.display = 'none';
+      }
+
+      const time = new Date().toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
+
+      const messageDiv = document.createElement('div');
+      messageDiv.className = `message ${role}-message`;
+      
+      messageDiv.innerHTML = `
+        <div class="message-header">
+          <div class="message-avatar ${role}-avatar">
+            ${role === 'user' ? '👤' : '🤖'}
+          </div>
+          <div class="message-name">${role === 'user' ? 'You' : 'AI Assistant'}</div>
+          <div class="message-time">${time}</div>
+        </div>
+        <div class="message-bubble">${content}</div>
+      `;
+
+      chatContainer.appendChild(messageDiv);
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+
+      conversationHistory.push({ role, content, time });
+    }
+
     async function sendTextToServer(text) {
-      statusEl.textContent = 'Sending to AI...';
+      updateStatus('processing', 'AI is thinking...');
       try {
         const res = await fetch(window.location.pathname + 'ask/', {
           method: 'POST',
@@ -96,27 +483,45 @@
           body: JSON.stringify({ text })
         });
         const data = await res.json();
+        
         if (data.error) {
-          replyEl.textContent = 'Error: ' + data.error;
-          statusEl.textContent = 'Error';
+          addMessage('ai', '❌ Error: ' + data.error);
+          updateStatus('idle', 'Ready to listen');
           return;
         }
-        replyEl.textContent = data.reply;
-        statusEl.textContent = 'AI replied';
+        
+        addMessage('ai', data.reply);
+        updateStatus('speaking', 'AI is speaking...');
         speakText(data.reply);
       } catch (err) {
-        replyEl.textContent = 'Request failed: ' + err;
-        statusEl.textContent = 'Error';
+        addMessage('ai', '❌ Request failed: ' + err);
+        updateStatus('idle', 'Ready to listen');
       }
     }
 
     function speakText(text) {
-      if (!window.speechSynthesis) return;
+      if (!window.speechSynthesis) {
+        updateStatus('idle', 'Ready to listen');
+        return;
+      }
+      
       const utter = new SpeechSynthesisUtterance(text);
       utter.lang = 'en-US';
+      
+      utter.onend = () => {
+        updateStatus('idle', 'Ready to listen');
+      };
+      
+      utter.onerror = () => {
+        updateStatus('idle', 'Ready to listen');
+      };
+      
       window.speechSynthesis.cancel();
       window.speechSynthesis.speak(utter);
     }
+
+    // Initialize empty state
+    emptyState.style.display = 'block';
   </script>
 </body>
 </html>

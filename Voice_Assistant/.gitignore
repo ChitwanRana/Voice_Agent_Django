@@ -2,3 +2,4 @@
 .venv
 logs/voice_agent.log
 src\logs\voice_agent.log
+db.sqlite3
