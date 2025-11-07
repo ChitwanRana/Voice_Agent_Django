@@ -1,0 +1,122 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Voice Assistant</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2rem; }
+    #status { margin-top: 1rem; }
+    #transcript, #reply { margin-top: 0.5rem; padding: 0.5rem; border: 1px solid #ddd; min-height: 2rem; }
+    button { padding: 0.6rem 1rem; margin-right: .5rem; }
+  </style>
+</head>
+<body>
+  <h1>Voice Assistant</h1>
+
+  <div>
+    <button id="startBtn">Start Listening</button>
+    <button id="stopBtn" disabled>Stop</button>
+  </div>
+
+  <div id="status">Status: idle</div>
+
+  <div>
+    <h3>Transcript</h3>
+    <div id="transcript"></div>
+  </div>
+
+  <div>
+    <h3>AI Reply</h3>
+    <div id="reply"></div>
+  </div>
+
+  <script>
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const statusEl = document.getElementById('status');
+    const transcriptEl = document.getElementById('transcript');
+    const replyEl = document.getElementById('reply');
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      statusEl.textContent = 'Browser does not support Web Speech API. Use Chrome.';
+      startBtn.disabled = true;
+    }
+
+    let recognition;
+    if (SpeechRecognition) {
+      recognition = new SpeechRecognition();
+      recognition.lang = 'en-US';
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      recognition.onstart = () => {
+        statusEl.textContent = 'Listening...';
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+      };
+
+      recognition.onresult = (event) => {
+        const text = event.results[0][0].transcript;
+        transcriptEl.textContent = text;
+        sendTextToServer(text);
+      };
+
+      recognition.onerror = (e) => {
+        statusEl.textContent = 'Error: ' + e.error;
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+      };
+
+      recognition.onend = () => {
+        statusEl.textContent = 'Idle';
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+      };
+    }
+
+    startBtn.addEventListener('click', () => {
+      transcriptEl.textContent = '';
+      replyEl.textContent = '';
+      recognition && recognition.start();
+    });
+
+    stopBtn.addEventListener('click', () => {
+      recognition && recognition.stop();
+    });
+
+    async function sendTextToServer(text) {
+      statusEl.textContent = 'Sending to AI...';
+      try {
+        const res = await fetch(window.location.pathname + 'ask/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ text })
+        });
+        const data = await res.json();
+        if (data.error) {
+          replyEl.textContent = 'Error: ' + data.error;
+          statusEl.textContent = 'Error';
+          return;
+        }
+        replyEl.textContent = data.reply;
+        statusEl.textContent = 'AI replied';
+        speakText(data.reply);
+      } catch (err) {
+        replyEl.textContent = 'Request failed: ' + err;
+        statusEl.textContent = 'Error';
+      }
+    }
+
+    function speakText(text) {
+      if (!window.speechSynthesis) return;
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = 'en-US';
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(utter);
+    }
+  </script>
+</body>
+</html>

@@ -2,5 +2,6 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-     path('', views.home, name='home'),
+    path("", views.index, name="voice_index"),
+    path("ask/", views.api_ask, name="voice_api_ask"),
 ]
