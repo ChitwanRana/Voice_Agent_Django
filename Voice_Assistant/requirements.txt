@@ -3,3 +3,5 @@ openai
 python-dotenv
 pyaudio
 django
+selenium 
+webdriver-manager

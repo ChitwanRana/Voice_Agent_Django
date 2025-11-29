@@ -5,3 +5,4 @@ src\logs\voice_agent.log
 db.sqlite3
 voice_app.log
 knowledge_base/
+patliputra_final.json
