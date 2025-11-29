@@ -7,9 +7,30 @@ from openai import AzureOpenAI
 from src.config.config import MyConfig
 from src.prompts.system_prompt import VOICE_ASSISTANT_PROMPT
 
+from pathlib import Path  # NEW
+
 logger = logging.getLogger("voice_app")  # custom logger
 
 MAX_HISTORY = 40  # trim session messages
+
+KB_DIR = Path(__file__).resolve().parent.parent / "knowledge_base"  # NEW
+KB_FILES = {
+    "healthcare": KB_DIR / "healthcare.md",
+    "finance": KB_DIR / "finance.md",
+}
+
+
+def load_kb(domain: str) -> str:
+    """Load KB text for a domain; return empty string if missing."""
+    fp = KB_FILES.get(domain)
+    if not fp or not fp.exists():
+        logger.warning("KB file missing for domain: %s", domain)
+        return ""
+    try:
+        return fp.read_text(encoding="utf-8")
+    except Exception as e:
+        logger.exception("Failed reading KB for %s: %s", domain, str(e))
+        return ""
 
 
 def index(request):
@@ -31,6 +52,14 @@ def api_ask(request):
 
         payload = json.loads(raw_data)
         user_text = (payload.get("text") or "").strip()
+        selected_domain = (payload.get("domain") or "").strip().lower()  # NEW
+
+        if selected_domain in ("healthcare", "finance", "normal"):  # UPDATED
+            request.session["selected_domain"] = selected_domain
+            logger.info("Domain set from request: %s", selected_domain)
+        else:
+            selected_domain = request.session.get("selected_domain", "normal")  # UPDATED default normal
+            logger.info("Domain fallback used: %s", selected_domain)
 
         if not user_text:
             logger.warning("Received empty user text")
@@ -63,14 +92,31 @@ def api_ask(request):
 
         logger.info("Sending request to Azure OpenAI model: %s", deployment_name)
 
-        messages = [{"role": "system", "content": VOICE_ASSISTANT_PROMPT}] + chat_history
+        # NEW: Build system prompt depending on domain
+        if selected_domain == "normal":
+            # No KB restriction; use original behavior
+            system_prompt = VOICE_ASSISTANT_PROMPT
+            logger.info("Using NORMAL domain (no KB restriction).")
+        else:
+            kb_text = load_kb(selected_domain)
+            domain_instructions = (
+                f"You are answering ONLY using the {selected_domain} knowledge base provided below. "
+                f"If the answer is not contained in the knowledge base, reply: "
+                f'\"I don’t have enough information in the {selected_domain} knowledge base to answer that.\". '
+                f"Do not fabricate. Cite sections or headings when possible.\n\n"
+                f"--- {selected_domain.upper()} KNOWLEDGE BASE ---\n{kb_text}\n--- END KB ---\n"
+            )
+            system_prompt = f"{VOICE_ASSISTANT_PROMPT}\n\n{domain_instructions}"
+            logger.info("Using domain-scoped KB: %s", selected_domain)
+
+        messages = [{"role": "system", "content": system_prompt}] + chat_history
 
         # Call Azure OpenAI
         resp = client.chat.completions.create(
             model=deployment_name,
             messages=messages,
             max_tokens=300,
-            temperature=0.7
+            temperature=0.2  # lower temp to stick to KB
         )
 
         logger.info("Azure OpenAI response received successfully.")
