@@ -6,3 +6,4 @@ db.sqlite3
 voice_app.log
 knowledge_base/
 patliputra_final.json
+__pycache__/

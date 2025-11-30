@@ -78,16 +78,25 @@ def api_ask(request):
         if len(history) > 6:
             history = history[-6:]
 
+        # Enhanced system prompt for direct, concise answers
+        base_personality = """You are a helpful AI voice assistant. 
+- Give DIRECT, SHORT answers to what the user asks
+- Answer in 1-2 sentences maximum for voice interaction
+- Match the user's language - if they speak Hinglish, reply in Hinglish
+- NO greetings, NO extra explanations unless asked
+- Be natural and conversational but BRIEF
+- Just answer the question directly"""
+
         # Prepare system prompt
         if selected_domain == "normal":
-            system_prompt = VOICE_ASSISTANT_PROMPT
+            system_prompt = base_personality
         else:
             kb_text = load_kb(selected_domain)
             system_prompt = (
-                f"{VOICE_ASSISTANT_PROMPT}\n\n"
-                f"You must answer ONLY using the {selected_domain} knowledge base below.\n"
-                f"If answer missing, reply: "
-                f"'I don't have enough information in the {selected_domain} knowledge base to answer that.'\n\n"
+                f"{base_personality}\n\n"
+                f"Answer ONLY using the {selected_domain} knowledge base below.\n"
+                f"Give direct answers with specific information (doctor names, room numbers, timings).\n"
+                f"If information is missing, say: 'Sorry, I don't have that information.'\n\n"
                 f"--- KB START ---\n{kb_text}\n--- KB END ---"
             )
 
@@ -102,13 +111,12 @@ def api_ask(request):
                 stream = client.chat.completions.create(
                     model=MyConfig.envFile()["AZURE_OPENAI_DEPLOYMENT_NAME"],
                     messages=messages,
-                    max_tokens=100,
-                    temperature=0.1,
+                    max_tokens=80,  # Reduced for shorter answers
+                    temperature=0.7,  # Balanced for natural but focused responses
                     stream=True
                 )
 
                 for chunk in stream:
-                    # Safety check: ensure choices exists and has content
                     if (hasattr(chunk, 'choices') and 
                         len(chunk.choices) > 0 and 
                         hasattr(chunk.choices[0], 'delta') and 
@@ -117,13 +125,10 @@ def api_ask(request):
                         
                         content = chunk.choices[0].delta.content
                         full_response += content
-                        # Send SSE format
                         yield f"data: {json.dumps({'chunk': content})}\n\n"
 
-                # Send completion signal
                 yield f"data: {json.dumps({'done': True})}\n\n"
 
-                # Save to session
                 if full_response:
                     history.append({"role": "assistant", "content": full_response})
                     request.session["chat_history"] = history
