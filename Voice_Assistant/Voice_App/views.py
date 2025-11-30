@@ -2,7 +2,7 @@ import json
 import logging
 import httpx
 from django.shortcuts import render
-from django.http import JsonResponse
+from django.http import JsonResponse, StreamingHttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from openai import AzureOpenAI
 from django.core.cache import cache
@@ -20,9 +20,27 @@ KB_FILES = {
     "finance": KB_DIR / "finance.md",
 }
 
+# Cache the Azure client globally
+_azure_client = None
+
+def get_azure_client():
+    global _azure_client
+    if _azure_client is None:
+        config = MyConfig.envFile()
+        _azure_client = AzureOpenAI(
+            api_key=config["AZURE_OPENAI_KEY"],
+            api_version=config["AZURE_OPENAI_API_VERSION"],
+            azure_endpoint=config["AZURE_OPENAI_ENDPOINT"],
+            http_client=httpx.Client(
+                timeout=10,
+                limits=httpx.Limits(max_keepalive_connections=5, max_connections=10)
+            )
+        )
+    return _azure_client
+
 
 def index(request):
-    return render(request, "voice_app/index.html")   # <— REQUIRED
+    return render(request, "voice_app/index.html")
 
 
 def load_kb(domain):
@@ -37,7 +55,6 @@ def load_kb(domain):
 
 @csrf_exempt
 def api_ask(request):
-
     if request.method != "POST":
         return JsonResponse({"error": "POST required"}, status=405)
 
@@ -54,12 +71,12 @@ def api_ask(request):
         if not user_text:
             return JsonResponse({"error": "Empty text"}, status=400)
 
-        # Chat history
+        # Chat history - limit to last 6 messages
         history = request.session.get("chat_history", [])
         history.append({"role": "user", "content": user_text})
 
-        if len(history) > MAX_HISTORY:
-            history = history[-MAX_HISTORY:]
+        if len(history) > 6:
+            history = history[-6:]
 
         # Prepare system prompt
         if selected_domain == "normal":
@@ -70,35 +87,60 @@ def api_ask(request):
                 f"{VOICE_ASSISTANT_PROMPT}\n\n"
                 f"You must answer ONLY using the {selected_domain} knowledge base below.\n"
                 f"If answer missing, reply: "
-                f"'I don’t have enough information in the {selected_domain} knowledge base to answer that.'\n\n"
+                f"'I don't have enough information in the {selected_domain} knowledge base to answer that.'\n\n"
                 f"--- KB START ---\n{kb_text}\n--- KB END ---"
             )
 
         messages = [{"role": "system", "content": system_prompt}] + history
 
-        # Azure Client
-        config = MyConfig.envFile()
-        client = AzureOpenAI(
-            api_key=config["AZURE_OPENAI_KEY"],
-            api_version=config["AZURE_OPENAI_API_VERSION"],
-            azure_endpoint=config["AZURE_OPENAI_ENDPOINT"],
-            http_client=httpx.Client(timeout=15)
+        # Stream generator
+        def generate_stream():
+            client = get_azure_client()
+            full_response = ""
+            
+            try:
+                stream = client.chat.completions.create(
+                    model=MyConfig.envFile()["AZURE_OPENAI_DEPLOYMENT_NAME"],
+                    messages=messages,
+                    max_tokens=100,
+                    temperature=0.1,
+                    stream=True
+                )
+
+                for chunk in stream:
+                    # Safety check: ensure choices exists and has content
+                    if (hasattr(chunk, 'choices') and 
+                        len(chunk.choices) > 0 and 
+                        hasattr(chunk.choices[0], 'delta') and 
+                        hasattr(chunk.choices[0].delta, 'content') and
+                        chunk.choices[0].delta.content):
+                        
+                        content = chunk.choices[0].delta.content
+                        full_response += content
+                        # Send SSE format
+                        yield f"data: {json.dumps({'chunk': content})}\n\n"
+
+                # Send completion signal
+                yield f"data: {json.dumps({'done': True})}\n\n"
+
+                # Save to session
+                if full_response:
+                    history.append({"role": "assistant", "content": full_response})
+                    request.session["chat_history"] = history
+                    request.session.modified = True
+
+            except Exception as e:
+                logger.exception("Error in stream generation")
+                yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+        return StreamingHttpResponse(
+            generate_stream(),
+            content_type='text/event-stream',
+            headers={
+                'Cache-Control': 'no-cache',
+                'X-Accel-Buffering': 'no',
+            }
         )
-
-        response = client.chat.completions.create(
-            model=config["AZURE_OPENAI_DEPLOYMENT_NAME"],
-            messages=messages,
-            max_tokens=150,
-            temperature=0.2
-        )
-
-        assistant_message = response.choices[0].message.content
-
-        # Save to session
-        history.append({"role": "assistant", "content": assistant_message})
-        request.session["chat_history"] = history
-
-        return JsonResponse({"reply": assistant_message})
 
     except Exception as e:
         logger.exception(e)
@@ -114,6 +156,7 @@ def reset_context(request):
         return JsonResponse({"error": "POST required."}, status=405)
 
     request.session["chat_history"] = []
+    request.session.modified = True
     logger.info("Chat context successfully reset.")
 
     return JsonResponse({"status": "context reset"})

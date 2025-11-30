@@ -515,27 +515,35 @@
     }
 
     function playWithVoice(text, voiceObj) {
-      if (!window.speechSynthesis) return;
+      if (!voiceObj) return;
       const u = new SpeechSynthesisUtterance(text);
-      u.voice = voiceObj || null;
-      u.lang = (voiceObj && voiceObj.lang) || 'en-US';
-      u.rate = 1;
-      u.pitch = 1;
-      window.speechSynthesis.cancel();
+      u.voice = voiceObj;
+      u.rate = 1.5;  // Increased from 1.0 (range: 0.1 to 10)
+      u.pitch = 1.0;
+      u.volume = 1.0;
+      u.onend = () => {
+        updateStatus('idle','Ready to listen');
+      };
       window.speechSynthesis.speak(u);
     }
 
     function speakText(text) {
-      if (!window.speechSynthesis) { updateStatus('idle','Ready to listen'); return; }
-      const utter = new SpeechSynthesisUtterance(text);
-      if (selectedVoice) utter.voice = selectedVoice;
-      utter.lang = (selectedVoice && selectedVoice.lang) || 'en-US';
-      utter.rate = 1;
-      utter.pitch = 1;
-      utter.onend = () => updateStatus('idle','Ready to listen');
-      utter.onerror = () => updateStatus('idle','Ready to listen');
+      if (!text || !window.speechSynthesis) return;
       window.speechSynthesis.cancel();
-      window.speechSynthesis.speak(utter);
+      
+      if (selectedVoice) {
+        playWithVoice(text, selectedVoice);
+      } else {
+        const u = new SpeechSynthesisUtterance(text);
+        u.rate = 1.3;  // Increase speed for model
+        u.pitch = 1.0;
+        u.volume = 1.0;
+        u.lang = 'en-US';
+        u.onend = () => {
+          updateStatus('idle','Ready to listen');
+        };
+        window.speechSynthesis.speak(u);
+      }
     }
 
     voiceSelect.addEventListener('change', () => {
@@ -562,23 +570,89 @@
 
     async function sendTextToServer(text) {
       updateStatus('processing','AI is thinking...');
+      
       try {
         const res = await fetch("{% url 'api_ask' %}", {
           method:'POST',
           headers:{ 'Content-Type':'application/json' },
-          body:JSON.stringify({ text, domain: selectedDomain }) // unchanged, now includes "normal"
+          body:JSON.stringify({ text, domain: selectedDomain })
         });
-        const data = await safeJson(res);
-        if (!res.ok || data.error) {
-          addMessage('ai','❌ Error: ' + (data.error || res.status));
+
+        if (!res.ok) {
+          const data = await safeJson(res);
+          addMessage('ai',' Error: ' + (data.error || res.status));
           updateStatus('idle','Ready to listen');
           return;
         }
-        addMessage('ai', data.reply);
-        updateStatus('speaking','AI is speaking...');
-        speakText(data.reply);
+
+        // Handle streaming response
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let fullResponse = '';
+        let aiMessageDiv = null;
+        let messageBubble = null;
+
+        while (true) {
+          const {done, value} = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value);
+          const lines = chunk.split('\n');
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = JSON.parse(line.slice(6));
+              
+              if (data.error) {
+                addMessage('ai',' Error: ' + data.error);
+                updateStatus('idle','Ready to listen');
+                return;
+              }
+
+              if (data.chunk) {
+                fullResponse += data.chunk;
+                
+                // Create message div on first chunk
+                if (!aiMessageDiv) {
+                  if (emptyState.style.display !== 'none') emptyState.style.display = 'none';
+                  const time = new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+                  aiMessageDiv = document.createElement('div');
+                  aiMessageDiv.className = 'message ai-message';
+                  aiMessageDiv.innerHTML = `
+                    <div class="message-header">
+                      <div class="message-avatar ai-avatar">🤖</div>
+                      <div class="message-name">AI Assistant</div>
+                      <div class="message-time">${time}</div>
+                    </div>
+                    <div class="message-bubble"></div>
+                  `;
+                  chatContainer.appendChild(aiMessageDiv);
+                  messageBubble = aiMessageDiv.querySelector('.message-bubble');
+                }
+                
+                // Update message content
+                messageBubble.textContent = fullResponse;
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+              }
+
+              if (data.done) {
+                conversationHistory.push({ 
+                  role: 'ai', 
+                  content: fullResponse, 
+                  time: new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})
+                });
+                if (conversationHistory.length > MAX_CLIENT_HISTORY)
+                  conversationHistory = conversationHistory.slice(-MAX_CLIENT_HISTORY);
+                
+                updateStatus('speaking','AI is speaking...');
+                speakText(fullResponse);
+              }
+            }
+          }
+        }
+
       } catch (e) {
-        addMessage('ai','❌ Request failed: ' + e.message);
+        addMessage('ai',' Request failed: ' + e.message);
         updateStatus('idle','Ready to listen');
       }
     }
@@ -640,12 +714,12 @@
           chatContainer.innerHTML = '';
           chatContainer.appendChild(emptyState);
           emptyState.style.display = 'flex';
-          addMessage('ai','🧠 Conversation reset.');
+          addMessage('ai',' Conversation reset.');
         } else {
-          addMessage('ai','⚠️ Reset failed: ' + (data.error || res.status));
+          addMessage('ai',' Reset failed: ' + (data.error || res.status));
         }
       } catch (e) {
-        addMessage('ai','❌ Reset failed: ' + e.message);
+        addMessage('ai',' Reset failed: ' + e.message);
       } finally {
         updateStatus('idle','Ready to listen');
       }
