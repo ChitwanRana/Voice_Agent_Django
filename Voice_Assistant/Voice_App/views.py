@@ -189,3 +189,66 @@ def api_tts(request):
 
     except Exception as e:
         return JsonResponse({"error": f"TTS error: {str(e)}"}, status=500)
+
+
+@csrf_exempt
+def generate_avatar_audio(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405)
+
+    try:
+        payload = json.loads(request.body)
+        text = (payload.get("text") or "").strip()
+        if not text:
+            return JsonResponse({"error": "Empty text"}, status=400)
+
+        # STEP 1: TTS
+        synthesizer = get_speech_synthesizer()
+        is_hindi = _contains_devanagari(text)
+        voice_name = "hi-IN-SwaraNeural" if is_hindi else "en-IN-NeerjaNeural"
+        lang = "hi-IN" if is_hindi else "en-IN"
+
+        ssml = f"""<speak version='1.0' xml:lang='{lang}'>
+            <voice name='{voice_name}'>
+                <prosody rate='1.1' pitch='0%'>{text}</prosody>
+            </voice>
+        </speak>"""
+
+        result = synthesizer.speak_ssml_async(ssml).get()
+        if result.reason != speechsdk.ResultReason.SynthesizingAudioCompleted:
+            return JsonResponse({"error": "TTS failed"}, status=500)
+
+        import uuid
+        import os
+
+        # STEP 2: save audio file
+        file_id = uuid.uuid4().hex
+        audio_path = f"media/avatar/{file_id}.wav"
+        phoneme_path = f"media/avatar/{file_id}.json"
+
+        os.makedirs("media/avatar", exist_ok=True)
+
+        with open(audio_path, "wb") as f:
+            f.write(result.audio_data)
+
+        print(">>> PHONETIC MODE ACTIVE <<<")
+
+
+        # STEP 3: Run Rhubarb Lip Sync
+        import subprocess
+        subprocess.run([
+            "rhubarb",
+            audio_path,
+            "--machineReadable",
+            "--recognizer", "phonetic",
+            "-o", phoneme_path
+        ])
+
+        return JsonResponse({
+            "text": text,
+            "audio_url": "/" + audio_path,
+            "phoneme_url": "/" + phoneme_path
+        })
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)

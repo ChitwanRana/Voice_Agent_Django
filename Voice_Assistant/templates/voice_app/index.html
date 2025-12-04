@@ -1,19 +1,24 @@
+{% load static %}
+
 <!doctype html>
 <html>
 <head>
   <meta charset="utf-8" />
   <title>AI Voice Assistant</title>
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
+
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
     body {
       font-family: system-ui,-apple-system,"Segoe UI",Roboto,Ubuntu;
       background: radial-gradient(circle at 20% 20%, #6d7fe9, #623c9d);
-      min-height:100vh; display:flex; justify-content:center; align-items:center; padding:10px; color:#1f2532;
+      min-height:100vh; display:flex; justify-content:center; align-items:center;
+      padding:10px; color:#1f2532;
     }
     .container {
       width:100%; max-width:1080px; background: #ffffffdd; backdrop-filter: blur(10px);
-      border:1px solid #ffffff44; border-radius: 26px; box-shadow: 0 20px 40px -8px rgba(19,15,64,.25);
+      border:1px solid #ffffff44; border-radius: 26px;
+      box-shadow: 0 20px 40px -8px rgba(19,15,64,.25);
       display:flex; flex-direction:column; height:92vh; max-height:880px; overflow:hidden;
     }
     .header {
@@ -29,40 +34,92 @@
     .status-indicator.listening { background:#28a745; }
     .status-indicator.processing { background:#ffb400; }
     .status-indicator.speaking { background:#17a2b8; }
+
     .chat-container {
-      flex:1; overflow-y:auto; padding:26px 34px; background:linear-gradient(180deg,#f5f7fb 0%, #eef2f7 100%);
+      flex:1; overflow-y:auto; padding:26px 34px;
+      background:linear-gradient(180deg,#f5f7fb 0%, #eef2f7 100%);
     }
     .message { margin-bottom:18px; }
     .message-bubble {
-      padding:14px 18px; border-radius:18px; line-height:1.55; max-width:780px;
-      font-size:14px; background:#fff; border:1px solid #e6e9ef; box-shadow:0 4px 14px -4px rgba(33,40,62,.18);
+      padding:14px 18px; border-radius:18px; line-height:1.55;
+      max-width:780px; font-size:14px; background:#fff;
+      border:1px solid #e6e9ef; box-shadow:0 4px 14px -4px rgba(33,40,62,.18);
     }
     .user-message .message-bubble {
-      background:linear-gradient(135deg,#667eea,#764ba2); color:#fff; border:1px solid #5d68db;
+      background:linear-gradient(135deg,#667eea,#764ba2);
+      color:#fff; border:1px solid #5d68db;
     }
+
     .controls {
-      background:#fff; border-top:1px solid #e4e7ef; padding:10px 20px 16px;
-      display:flex; flex-direction:column; gap:14px;
+      background:#fff; border-top:1px solid #e4e7ef;
+      padding:10px 20px 16px; display:flex; flex-direction:column; gap:14px;
     }
     .button-group { display:flex; gap:10px; justify-content:center; }
     .btn {
-      background:linear-gradient(135deg,#667eea,#764ba2); color:#fff; border:none;
-      font-size:12.5px; padding:9px 18px; border-radius:20px; font-weight:600; cursor:pointer;
+      background:linear-gradient(135deg,#667eea,#764ba2); color:#fff;
+      border:none; font-size:12.5px; padding:9px 18px;
+      border-radius:20px; font-weight:600; cursor:pointer;
     }
     .btn:disabled { opacity:.55; cursor:not-allowed; }
-    #domainSelect { padding:6px 8px; border:1px solid #e0e4ec; border-radius:8px; font-size:12px; }
+
+    #domainSelect {
+      padding:6px 8px; border:1px solid #e0e4ec;
+      border-radius:8px; font-size:12px;
+    }
+
+    /* ============= AVATAR ANIMATIONS ============= */
+    .avatar-container {
+      position: relative;
+      width: 260px;
+      margin: 15px auto;
+    }
+
+    /* Floating animation */
+    .avatar-face {
+      width: 100%;
+      border-radius:20px;
+      animation: floatAvatar 4s ease-in-out infinite;
+    }
+
+    @keyframes floatAvatar {
+      0% { transform: translateY(0px); }
+      50% { transform: translateY(-8px); }
+      100% { transform: translateY(0px); }
+    }
+
+    /* Mouth positioning */
+    #mouth {
+      position:absolute;
+      bottom:58px;
+      left:95px;
+      width:75px;
+    }
+
+    /* Talking animation (simple open-close loop) */
+    .talking {
+      animation: talkAnim 0.18s infinite;
+    }
+
+    @keyframes talkAnim {
+      0% { transform: scaleY(1); }
+      50% { transform: scaleY(0.4); }
+      100% { transform: scaleY(1); }
+    }
   </style>
 </head>
+
 <body>
   <div class="container">
     <div class="header">
       <h1>🤖 Bodhita Minds Voice Assistant</h1>
     </div>
+
     <div class="status-bar">
       <div class="status-indicator" id="statusIndicator"></div>
       <div id="statusText">Ready</div>
+
       <div style="margin-left:auto; display:flex; gap:8px; align-items:center;">
-        <label for="domainSelect" style="font-size:12px;">Domain:</label>
+        <label style="font-size:12px;">Domain:</label>
         <select id="domainSelect">
           <option value="normal">General</option>
           <option value="healthcare">Healthcare</option>
@@ -70,7 +127,15 @@
         </select>
       </div>
     </div>
+
+    <!-- AVATAR BLOCK -->
+    <div class="avatar-container">
+      <img src="/static/avatar/face.png" class="avatar-face">
+      <img id="mouth" src="/static/avatar/mouth/rest.png">
+    </div>
+
     <div class="chat-container" id="chatContainer"></div>
+
     <div class="controls">
       <div class="button-group">
         <button id="startBtn" class="btn">🎤 Start</button>
@@ -81,128 +146,169 @@
     </div>
   </div>
 
-  <script>
-    const startBtn = document.getElementById('startBtn');
-    const stopBtn = document.getElementById('stopBtn');
-    const clearBtn = document.getElementById('clearBtn');
-    const resetBtn = document.getElementById('resetBtn');
-    const statusIndicator = document.getElementById('statusIndicator');
-    const statusText = document.getElementById('statusText');
-    const chatContainer = document.getElementById('chatContainer');
-    const domainSelect = document.getElementById('domainSelect');
+<audio id="voice"></audio>
 
-    let selectedDomain = localStorage.getItem('selected_domain') || 'normal';
-    domainSelect.value = selectedDomain;
-    domainSelect.addEventListener('change', () => {
-      selectedDomain = domainSelect.value;
-      localStorage.setItem('selected_domain', selectedDomain);
-    });
+<script>
+/* Buttons + UI */
+const startBtn = document.getElementById('startBtn');
+const stopBtn = document.getElementById('stopBtn');
+const clearBtn = document.getElementById('clearBtn');
+const resetBtn = document.getElementById('resetBtn');
+const statusIndicator = document.getElementById('statusIndicator');
+const statusText = document.getElementById('statusText');
+const chatContainer = document.getElementById('chatContainer');
+const domainSelect = document.getElementById('domainSelect');
 
-    function updateStatus(state, text) {
-      statusText.textContent = text;
-      statusIndicator.className = 'status-indicator ' + state;
-    }
+let selectedDomain = localStorage.getItem('selected_domain') || 'normal';
+domainSelect.value = selectedDomain;
+domainSelect.addEventListener('change', () => {
+  selectedDomain = domainSelect.value;
+  localStorage.setItem('selected_domain', selectedDomain);
+});
 
-    function addMessage(role, content) {
-      const div = document.createElement('div');
-      div.className = `message ${role}-message`;
-      div.innerHTML = `<div class="message-bubble">${content}</div>`;
-      chatContainer.appendChild(div);
-      chatContainer.scrollTop = chatContainer.scrollHeight;
-    }
+function updateStatus(state, text) {
+  statusIndicator.className = 'status-indicator ' + state;
+  statusText.textContent = text;
+}
 
-    let currentAudio = null;
+function addMessage(role, content) {
+  const div = document.createElement('div');
+  div.className = `message ${role}-message`;
+  div.innerHTML = `<div class="message-bubble">${content}</div>`;
+  chatContainer.appendChild(div);
+  chatContainer.scrollTop = chatContainer.scrollHeight;
+}
 
-    async function speakText(text) {
-      if (currentAudio) currentAudio.pause();
+/* ============= AVATAR TALKING ANIMATION ============= */
+const mouth = document.getElementById("mouth");
+
+function startTalking() {
+  mouth.classList.add("talking");
+}
+
+function stopTalking() {
+  mouth.classList.remove("talking");
+}
+
+/* ============= TTS (AI SPEAKING) ============= */
+let currentAudio = null;
+
+async function speakText(text) {
+  if (currentAudio) currentAudio.pause();
+
+  const res = await fetch('/api/tts/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+    body: JSON.stringify({ text })
+  });
+
+  const data = await res.json();
+
+  if (!data.audio) return;
+
+  const blob = base64ToBlob(data.audio, 'audio/wav');
+  const url = URL.createObjectURL(blob);
+
+  currentAudio = new Audio(url);
+
+  currentAudio.onplay = () => startTalking();
+  currentAudio.onended = () => {
+    stopTalking();
+    URL.revokeObjectURL(url);
+    currentAudio = null;
+  };
+
+  currentAudio.playbackRate = 1.1;
+  currentAudio.play();
+}
+
+/* Helpers */
+function base64ToBlob(base64, type) {
+  const bytes = atob(base64);
+  const arr = new Uint8Array(bytes.length);
+  for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+  return new Blob([arr], { type });
+}
+
+function getCookie(name) {
+  const cookies = document.cookie.split(';');
+  for (let c of cookies) {
+    const [k, v] = c.trim().split('=');
+    if (k === name) return decodeURIComponent(v);
+  }
+  return null;
+}
+
+/* ============= SEND TEXT TO SERVER & GET AI RESPONSE ============= */
+async function sendTextToServer(text) {
+  updateStatus('processing', 'AI thinking...');
+
+  const res = await fetch("{% url 'api_ask' %}", {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text, domain: selectedDomain })
+  });
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let full = '', aiDiv = null;
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+
+    const parts = decoder.decode(value).split(/\r?\n\r?\n/).filter(Boolean);
+    for (const p of parts) {
       try {
-        const res = await fetch('/api/tts/', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
-          body: JSON.stringify({ text })
-        });
-        if (!res.ok) throw new Error('TTS failed');
-        const data = await res.json();
-        if (data.audio) {
-          const blob = base64ToBlob(data.audio, 'audio/wav');
-          const url = URL.createObjectURL(blob);
-          currentAudio = new Audio(url);
-          currentAudio.onended = () => { URL.revokeObjectURL(url); currentAudio = null; };
-          currentAudio.playbackRate = 1.1;
-          await currentAudio.play();
-        }
-      } catch (e) {
-        console.error('TTS error:', e);
-      }
-    }
-
-    function base64ToBlob(base64, type) {
-      const bytes = atob(base64);
-      const arr = new Uint8Array(bytes.length);
-      for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
-      return new Blob([arr], { type });
-    }
-
-    function getCookie(name) {
-      const cookies = document.cookie.split(';');
-      for (let c of cookies) {
-        const [k, v] = c.trim().split('=');
-        if (k === name) return decodeURIComponent(v);
-      }
-      return null;
-    }
-
-    async function sendTextToServer(text) {
-      updateStatus('processing', 'AI thinking...');
-      try {
-        const res = await fetch("{% url 'api_ask' %}", {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text, domain: selectedDomain })
-        });
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let full = '', aiDiv = null;
-
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) break;
-          const parts = decoder.decode(value, { stream: true }).split(/\r?\n\r?\n/).filter(Boolean);
-          for (const p of parts) {
-            try {
-              const obj = JSON.parse(p.replace(/^data:\s*/, ''));
-              if (obj.chunk) {
-                if (!aiDiv) { addMessage('ai', '...'); aiDiv = chatContainer.lastElementChild.querySelector('.message-bubble'); }
-                full += obj.chunk;
-                if (aiDiv) aiDiv.textContent = full;
-              } else if (obj.done && !aiDiv) {
-                addMessage('ai', full);
-              }
-            } catch (e) {}
+        const obj = JSON.parse(p.replace(/^data:\s*/, ''));
+        if (obj.chunk) {
+          if (!aiDiv) {
+            addMessage('ai', '...');
+            aiDiv = chatContainer.lastElementChild.querySelector('.message-bubble');
           }
+          full += obj.chunk;
+          aiDiv.textContent = full;
         }
-        if (full) speakText(full);
-        updateStatus('idle', 'Ready');
-      } catch (e) {
-        addMessage('ai', 'Error: ' + e.message);
-        updateStatus('idle', 'Ready');
-      }
+      } catch (err) {}
     }
+  }
 
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'en-US';
-    recognition.onstart = () => { updateStatus('listening', 'Listening...'); startBtn.disabled = true; stopBtn.disabled = false; };
-    recognition.onresult = (e) => { const text = e.results[0][0].transcript; addMessage('user', text); sendTextToServer(text); };
-    recognition.onend = () => { updateStatus('idle', 'Ready'); startBtn.disabled = false; stopBtn.disabled = true; };
+  if (full) {
+    speakText(full);
+  }
 
-    startBtn.addEventListener('click', () => recognition.start());
-    stopBtn.addEventListener('click', () => recognition.stop());
-    clearBtn.addEventListener('click', () => chatContainer.innerHTML = '');
-    resetBtn.addEventListener('click', async () => {
-      await fetch("{% url 'reset_context' %}", { method: 'POST' });
-      chatContainer.innerHTML = '';
-    });
-  </script>
+  updateStatus('idle', 'Ready');
+}
+
+/* Speech Recognition */
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+const recognition = new SpeechRecognition();
+recognition.lang = 'en-US';
+
+recognition.onstart = () => {
+  updateStatus('listening', 'Listening...');
+  startBtn.disabled = true; stopBtn.disabled = false;
+};
+
+recognition.onresult = (e) => {
+  const text = e.results[0][0].transcript;
+  addMessage('user', text);
+  sendTextToServer(text);
+};
+
+recognition.onend = () => {
+  updateStatus('idle', 'Ready');
+  startBtn.disabled = false; stopBtn.disabled = true;
+};
+
+startBtn.addEventListener('click', () => recognition.start());
+stopBtn.addEventListener('click', () => recognition.stop());
+clearBtn.addEventListener('click', () => chatContainer.innerHTML = '');
+resetBtn.addEventListener('click', async () => {
+  await fetch("{% url 'reset_context' %}", { method:'POST' });
+  chatContainer.innerHTML = '';
+});
+</script>
+
 </body>
 </html>

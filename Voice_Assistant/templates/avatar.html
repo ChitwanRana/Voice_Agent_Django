@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Avatar</title>
+</head>
+<body style="background:#f7f7f7; display:flex; justify-content:center;">
+
+    <!-- Avatar Container -->
+    <div style="position:relative; width:320px; margin-top:30px;">
+        <!-- Face Image -->
+        <img src="/static/avatar/face.png"
+             style="width:100%; border-radius:20px;">
+
+        <!-- Mouth Layer -->
+        <img id="mouth"
+             src="/static/avatar/mouth/rest.png"
+             style="position:absolute; bottom:65px; left:110px; width:95px;">
+    </div>
+
+    <!-- Audio Output -->
+    <audio id="voice"></audio>
+
+    <script>
+        let phonemes = [];
+        let startTime = 0;
+
+        function playAvatar(audioUrl, phonemeUrl) {
+            // 1. Load phoneme timings
+            fetch(phonemeUrl)
+                .then(res => res.json())
+                .then(data => {
+                    phonemes = data;
+                    startTime = performance.now() / 1000;
+
+                    // 2. Play audio
+                    const audio = document.getElementById("voice");
+                    audio.src = audioUrl;
+                    audio.play();
+
+                    // 3. Start lip-sync animation
+                    requestAnimationFrame(updateMouth);
+                });
+        }
+
+        function updateMouth() {
+            let now = performance.now() / 1000 - startTime;
+
+            for (let i = 0; i < phonemes.length; i++) {
+                if (now >= phonemes[i].time) {
+
+                    // mouth name like "A", "E", "rest"
+                    const mouthShape = phonemes[i].mouth;
+
+                    // change to mouth PNG
+                    document.getElementById("mouth").src =
+                        `/static/avatar/mouth/${mouthShape}.png`;
+                }
+            }
+
+            requestAnimationFrame(updateMouth);
+        }
+    </script>
+
+</body>
+</html>
