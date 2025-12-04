@@ -6,383 +6,72 @@
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
-
     body {
       font-family: system-ui,-apple-system,"Segoe UI",Roboto,Ubuntu;
       background: radial-gradient(circle at 20% 20%, #6d7fe9, #623c9d);
-      min-height:100vh;
-      display:flex;
-      justify-content:center;
-      align-items:center;
-      padding:10px;
-      color:#1f2532;
+      min-height:100vh; display:flex; justify-content:center; align-items:center; padding:10px; color:#1f2532;
     }
-
     .container {
-      width:100%;
-      max-width:1080px;
-      background: #ffffffdd;
-      backdrop-filter: blur(10px);
-      border:1px solid #ffffff44;
-      border-radius: 26px;
-      box-shadow: 0 20px 40px -8px rgba(19,15,64,.25);
-      display:flex;
-      flex-direction:column;
-      height:92vh;
-      max-height:880px;
-      overflow:hidden;
-      position:relative;
+      width:100%; max-width:1080px; background: #ffffffdd; backdrop-filter: blur(10px);
+      border:1px solid #ffffff44; border-radius: 26px; box-shadow: 0 20px 40px -8px rgba(19,15,64,.25);
+      display:flex; flex-direction:column; height:92vh; max-height:880px; overflow:hidden;
     }
-
-    /* Header */
     .header {
-      display:flex;
-      align-items:center;
-      gap:18px;
-      padding:14px 22px;
-      background:linear-gradient(135deg,#5f6eea 0%, #7a49b0 100%);
-      color:#fff;
-      position:relative;
+      display:flex; align-items:center; gap:18px; padding:14px 22px;
+      background:linear-gradient(135deg,#5f6eea 0%, #7a49b0 100%); color:#fff;
     }
-    .header-left h1 {
-      font-size:22px;
-      font-weight:600;
-      display:flex;
-      align-items:center;
-      gap:8px;
-      letter-spacing:.5px;
-    }
-    .subtitle {
-      font-size:12px;
-      font-weight:500;
-      opacity:.85;
-      margin-top:2px;
-    }
-
-    /* Voice panel trigger */
-    .voice-toggle-btn {
-      margin-left:auto;
-      background:rgba(255,255,255,.15);
-      border:1px solid rgba(255,255,255,.35);
-      color:#fff;
-      font-size:13px;
-      padding:6px 14px;
-      border-radius:24px;
-      cursor:pointer;
-      display:flex;
-      align-items:center;
-      gap:6px;
-      backdrop-filter:blur(4px);
-      transition:background .25s, transform .2s;
-    }
-    .voice-toggle-btn:hover {
-      background:rgba(255,255,255,.28);
-      transform:translateY(-2px);
-    }
-
-    /* Collapsible voice panel */
-    .voice-panel {
-      position:absolute;
-      top:60px;
-      right:14px;
-      width:290px;
-      max-width:92vw;
-      background:#ffffff;
-      border:1px solid #e3e7ef;
-      border-radius:18px;
-      box-shadow:0 12px 32px -6px rgba(31,42,68,.3);
-      padding:14px 16px 16px;
-      display:none;
-      flex-direction:column;
-      gap:10px;
-      animation:pop .28s ease;
-      z-index:20;
-    }
-    .voice-panel.active { display:flex; }
-    @keyframes pop { from { transform:translateY(-6px); opacity:0;} to { transform:translateY(0); opacity:1;} }
-
-    .voice-panel h3 {
-      font-size:14px;
-      font-weight:600;
-      letter-spacing:.3px;
-      display:flex;
-      align-items:center;
-      gap:6px;
-      margin-bottom:2px;
-      color:#343a55;
-    }
-    #voiceSelect {
-      width:100%;
-      padding:8px 10px;
-      border:1px solid #d5dae3;
-      border-radius:10px;
-      font-size:13px;
-      background:#f9fafc;
-      transition:border .2s, box-shadow .25s;
-    }
-    #voiceSelect:focus {
-      outline:none;
-      border-color:#667eea;
-      box-shadow:0 0 0 3px #667eea40;
-      background:#fff;
-    }
-    .panel-row {
-      display:flex;
-      gap:8px;
-      align-items:center;
-      flex-wrap:wrap;
-    }
-    #voiceDemoBtn {
-      flex:1;
-      background:linear-gradient(135deg,#17a2b8,#138496);
-      border:none;
-      color:#fff;
-      font-weight:600;
-      font-size:12px;
-      padding:8px 14px;
-      border-radius:12px;
-      cursor:pointer;
-      box-shadow:0 3px 10px rgba(23,162,184,.35);
-      transition:transform .2s, box-shadow .25s;
-    }
-    #voiceDemoBtn:hover {
-      transform:translateY(-2px);
-      box-shadow:0 6px 16px rgba(23,162,184,.45);
-    }
-    .badge-tip {
-      font-size:11px;
-      background:#eef2ff;
-      color:#4c57d6;
-      padding:4px 8px;
-      border-radius:20px;
-      font-weight:500;
-    }
-
-    /* Status bar */
+    .header h1 { font-size:22px; font-weight:600; letter-spacing:.5px; }
     .status-bar {
-      background:#ffffff;
-      border-bottom:1px solid #e4e7ef;
-      padding:8px 18px;
-      display:flex;
-      align-items:center;
-      gap:10px;
-      font-size:13px;
-      font-weight:500;
-      letter-spacing:.2px;
+      background:#fff; border-bottom:1px solid #e4e7ef; padding:8px 18px;
+      display:flex; align-items:center; gap:10px; font-size:13px; font-weight:500;
     }
-    .status-indicator {
-      width:10px; height:10px; border-radius:50%;
-      background:#6c757d;
-      position:relative;
-    }
-    .status-indicator::after {
-      content:""; position:absolute; inset:0; border-radius:inherit;
-      animation:pulse 2s infinite;
-      background:inherit; opacity:.55;
-    }
+    .status-indicator { width:10px; height:10px; border-radius:50%; background:#6c757d; }
     .status-indicator.listening { background:#28a745; }
     .status-indicator.processing { background:#ffb400; }
     .status-indicator.speaking { background:#17a2b8; }
-    @keyframes pulse { 0%,100% { transform:scale(1); opacity:.45;} 50% { transform:scale(1.7); opacity:0;} }
-
-    /* Chat */
     .chat-container {
-      flex:1;
-      overflow-y:auto;
-      padding:26px 34px 24px;
-      background:linear-gradient(180deg,#f5f7fb 0%, #eef2f7 100%);
-      position:relative;
-      scroll-behavior:smooth;
+      flex:1; overflow-y:auto; padding:26px 34px; background:linear-gradient(180deg,#f5f7fb 0%, #eef2f7 100%);
     }
-    .chat-container::-webkit-scrollbar { width:10px; }
-    .chat-container::-webkit-scrollbar-thumb {
-      background:#c9cfd9;
-      border-radius:7px;
-      border:2px solid #eef2f7;
-    }
-    .chat-container::-webkit-scrollbar-thumb:hover { background:#b2b9c5; }
-
-    .message { margin-bottom:18px; animation:fadeIn .35s ease; }
-    @keyframes fadeIn { from { opacity:0; transform:translateY(6px);} to { opacity:1; transform:translateY(0);} }
-
-    .message-header {
-      display:flex; align-items:center; gap:10px; margin-bottom:6px;
-    }
-    .message-avatar {
-      width:34px; height:34px; border-radius:14px;
-      display:flex; align-items:center; justify-content:center;
-      font-size:16px; font-weight:600; color:#fff;
-      box-shadow:0 4px 10px -2px rgba(0,0,0,.25);
-    }
-    .user-avatar { background:linear-gradient(135deg,#667eea,#764ba2); }
-    .ai-avatar { background:linear-gradient(135deg,#f093fb,#f5576c); }
-    .message-name { font-size:13px; font-weight:600; color:#263046; letter-spacing:.3px; }
-    .message-time { font-size:11px; margin-left:auto; color:#7a8495; font-weight:500; }
-
+    .message { margin-bottom:18px; }
     .message-bubble {
-      padding:14px 18px;
-      border-radius:18px;
-      line-height:1.55;
-      max-width:780px;
-      font-size:14px;
-      letter-spacing:.2px;
-      word-wrap:break-word;
-      background:#fff;
-      border:1px solid #e6e9ef;
-      box-shadow:0 4px 14px -4px rgba(33,40,62,.18);
+      padding:14px 18px; border-radius:18px; line-height:1.55; max-width:780px;
+      font-size:14px; background:#fff; border:1px solid #e6e9ef; box-shadow:0 4px 14px -4px rgba(33,40,62,.18);
     }
     .user-message .message-bubble {
-      background:linear-gradient(135deg,#667eea,#764ba2);
-      color:#fff;
-      border:1px solid #5d68db;
-      box-shadow:0 6px 18px -4px rgba(95,108,230,.55);
+      background:linear-gradient(135deg,#667eea,#764ba2); color:#fff; border:1px solid #5d68db;
     }
-    .ai-message .message-bubble {
-      background:#ffffff;
-    }
-
-    /* Empty state */
-    .empty-state {
-      text-align:center;
-      margin-top:12vh;
-      opacity:.75;
-      display:flex;
-      flex-direction:column;
-      gap:14px;
-      align-items:center;
-    }
-    .empty-state-icon {
-      font-size:48px;
-      filter:drop-shadow(0 6px 12px rgba(0,0,0,.15));
-      animation:float 4s ease-in-out infinite;
-    }
-    @keyframes float { 0%,100% { transform:translateY(0);} 50% { transform:translateY(-8px);} }
-    .empty-state-text { font-size:22px; font-weight:600; letter-spacing:.5px; }
-    .empty-state-subtext { font-size:13px; max-width:340px; line-height:1.4; }
-
-    /* Controls */
     .controls {
-      background:#ffffff;
-      border-top:1px solid #e4e7ef;
-      padding:10px 20px 16px;
-      display:flex;
-      flex-direction:column;
-      gap:14px;
+      background:#fff; border-top:1px solid #e4e7ef; padding:10px 20px 16px;
+      display:flex; flex-direction:column; gap:14px;
     }
-
-    .listening-animation {
-      display:flex;
-      gap:4px;
-      height:22px;
-      justify-content:center;
-      opacity:.4;
-      transition:opacity .25s;
-    }
-    .listening-animation.active { opacity:1; }
-    .listening-animation .bar {
-      width:6px; border-radius:3px; background:#6e78e8;
-      animation:wave 1.2s ease-in-out infinite;
-    }
-    .listening-animation .bar:nth-child(2){ animation-delay:.1s; background:#7e5fbf;}
-    .listening-animation .bar:nth-child(3){ animation-delay:.2s; background:#f093fb;}
-    .listening-animation .bar:nth-child(4){ animation-delay:.3s; background:#f5576c;}
-    .listening-animation .bar:nth-child(5){ animation-delay:.4s; background:#17a2b8;}
-    @keyframes wave { 0%,100% { transform:scaleY(.3);} 50% { transform:scaleY(1);} }
-
-    /* Buttons smaller */
-    .button-group {
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      justify-content:center;
-    }
+    .button-group { display:flex; gap:10px; justify-content:center; }
     .btn {
-      --btn-bg:#667eea;
-      --btn-bg2:#764ba2;
-      --btn-shadow:rgba(102,118,234,.35);
-      background:linear-gradient(135deg,var(--btn-bg),var(--btn-bg2));
-      color:#fff;
-      border:none;
-      font-size:12.5px;
-      padding:9px 18px;
-      border-radius:20px;
-      font-weight:600;
-      letter-spacing:.4px;
-      cursor:pointer;
-      position:relative;
-      transition:transform .18s, box-shadow .25s, filter .25s;
-      box-shadow:0 3px 10px var(--btn-shadow);
-      display:flex;
-      align-items:center;
-      gap:6px;
+      background:linear-gradient(135deg,#667eea,#764ba2); color:#fff; border:none;
+      font-size:12.5px; padding:9px 18px; border-radius:20px; font-weight:600; cursor:pointer;
     }
-    .btn:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 7px 18px var(--btn-shadow); }
-    .btn:active:not(:disabled) { transform:translateY(0); }
     .btn:disabled { opacity:.55; cursor:not-allowed; }
-
-    #startBtn { --btn-bg:#667eea; --btn-bg2:#764ba2; --btn-shadow:rgba(102,118,234,.45); }
-    #stopBtn { --btn-bg:#f093fb; --btn-bg2:#f5576c; --btn-shadow:rgba(240,147,251,.45); }
-    #clearBtn { --btn-bg:#59616d; --btn-bg2:#424951; --btn-shadow:rgba(73,80,87,.4); }
-    #resetBtn { --btn-bg:#e24955; --btn-bg2:#b32835; --btn-shadow:rgba(226,73,85,.45); }
-
-    /* Utility classes */
-    .visually-hidden { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
-
-    @media (max-width:760px) {
-      .header { flex-wrap:wrap; padding:14px 16px; }
-      .chat-container { padding:22px 18px 18px; }
-      .container { height:96vh; }
-      .voice-panel { right:8px; top:56px; }
-    }
+    #domainSelect { padding:6px 8px; border:1px solid #e0e4ec; border-radius:8px; font-size:12px; }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <div class="header-left">
-        <h1><span>🤖</span> Bodhita Minds Voice Assistant</h1>
-      </div>
-      <button id="voiceToggle" class="voice-toggle-btn" aria-expanded="false">
-        ⚙️ Voice
-      </button>
-      <div id="voicePanel" class="voice-panel" aria-hidden="true">
-        <h3>Assistant Voice</h3>
-        <select id="voiceSelect">
-          <option disabled selected>Loading voices...</option>
-        </select>
-        <div class="panel-row">
-          <button id="voiceDemoBtn" type="button">▶ Demo</button>
-          <span class="badge-tip">Used for replies</span>
-        </div>
-      </div>
+      <h1>🤖 Bodhita Minds Voice Assistant</h1>
     </div>
-
     <div class="status-bar">
       <div class="status-indicator" id="statusIndicator"></div>
-      <div class="status-text" id="statusText">Ready to listen</div>
-      <!-- NEW: Domain selector -->
+      <div id="statusText">Ready</div>
       <div style="margin-left:auto; display:flex; gap:8px; align-items:center;">
-        <label for="domainSelect" style="font-size:12px; color:#555;">Domain:</label>
-        <select id="domainSelect" style="padding:6px 8px; border:1px solid #e0e4ec; border-radius:8px; font-size:12px;">
-          <option value="normal">General</option> 
+        <label for="domainSelect" style="font-size:12px;">Domain:</label>
+        <select id="domainSelect">
+          <option value="normal">General</option>
           <option value="healthcare">Healthcare</option>
           <option value="finance">Finance</option>
         </select>
       </div>
     </div>
-
-    <div class="chat-container" id="chatContainer">
-      <div class="empty-state" id="emptyState">
-        <div class="empty-state-icon">🎤</div>
-        <div class="empty-state-text">Start a Conversation</div>
-        <div class="empty-state-subtext">Press Start Listening to speak with your assistant.</div>
-      </div>
-    </div>
-
+    <div class="chat-container" id="chatContainer"></div>
     <div class="controls">
-      <div class="listening-animation" id="listeningAnimation">
-        <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
-      </div>
       <div class="button-group">
         <button id="startBtn" class="btn">🎤 Start</button>
         <button id="stopBtn" class="btn" disabled>⏹️ Stop</button>
@@ -393,7 +82,6 @@
   </div>
 
   <script>
-    /* DOM refs */
     const startBtn = document.getElementById('startBtn');
     const stopBtn = document.getElementById('stopBtn');
     const clearBtn = document.getElementById('clearBtn');
@@ -401,44 +89,13 @@
     const statusIndicator = document.getElementById('statusIndicator');
     const statusText = document.getElementById('statusText');
     const chatContainer = document.getElementById('chatContainer');
-    const emptyState = document.getElementById('emptyState');
-    const listeningAnimation = document.getElementById('listeningAnimation');
-    const voiceSelect = document.getElementById('voiceSelect');
-    const voiceDemoBtn = document.getElementById('voiceDemoBtn');
-    const voiceToggle = document.getElementById('voiceToggle');
-    const voicePanel = document.getElementById('voicePanel');
-    const domainSelect = document.getElementById('domainSelect'); // NEW
+    const domainSelect = document.getElementById('domainSelect');
 
-    /* Voice panel toggle */
-    voiceToggle.addEventListener('click', () => {
-      const active = voicePanel.classList.toggle('active');
-      voiceToggle.setAttribute('aria-expanded', active);
-      voicePanel.setAttribute('aria-hidden', !active);
-    });
-    document.addEventListener('click', (e) => {
-      if (!voicePanel.classList.contains('active')) return;
-      if (!voicePanel.contains(e.target) && !voiceToggle.contains(e.target)) {
-        voicePanel.classList.remove('active');
-        voiceToggle.setAttribute('aria-expanded', 'false');
-        voicePanel.setAttribute('aria-hidden','true');
-      }
-    });
-
-    let conversationHistory = [];
-    const MAX_CLIENT_HISTORY = 120;
-    let availableVoices = [];
-    let selectedVoice = null;
-    let selectedDomain = localStorage.getItem('selected_domain') || 'normal'; // UPDATED default
+    let selectedDomain = localStorage.getItem('selected_domain') || 'normal';
     domainSelect.value = selectedDomain;
-
     domainSelect.addEventListener('change', () => {
       selectedDomain = domainSelect.value;
       localStorage.setItem('selected_domain', selectedDomain);
-      const msg =
-        selectedDomain === 'normal'
-          ? '🤖 Switched to Normal mode. Answers are not restricted to any knowledge base.'
-          : `📚 Switched domain to ${selectedDomain}. Answers will use only this knowledge base.`;
-      addMessage('ai', msg);
     });
 
     function updateStatus(state, text) {
@@ -447,331 +104,105 @@
     }
 
     function addMessage(role, content) {
-      if (emptyState.style.display !== 'none') emptyState.style.display = 'none';
-      const time = new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
       const div = document.createElement('div');
       div.className = `message ${role}-message`;
-      div.innerHTML = `
-        <div class="message-header">
-          <div class="message-avatar ${role}-avatar">${role === 'user' ? '👤' : '🤖'}</div>
-          <div class="message-name">${role === 'user' ? 'You' : 'AI Assistant'}</div>
-          <div class="message-time">${time}</div>
-        </div>
-        <div class="message-bubble">${content}</div>
-      `;
+      div.innerHTML = `<div class="message-bubble">${content}</div>`;
       chatContainer.appendChild(div);
       chatContainer.scrollTop = chatContainer.scrollHeight;
-      conversationHistory.push({ role, content, time });
-      if (conversationHistory.length > MAX_CLIENT_HISTORY)
-        conversationHistory = conversationHistory.slice(-MAX_CLIENT_HISTORY);
-    }
-
-    function inferGender(v) {
-      const n = (v.name + ' ' + v.voiceURI).toLowerCase();
-      const femaleHints = ['female','woman','girl','zira','aria','jessa','lisa','susan','helen','linda','mary','emma','sara','amy'];
-      const maleHints = ['male','man','boy','david','guy','mark','john','mike','george','paul','alex','brian','daniel','james'];
-      const f = femaleHints.some(h=>n.includes(h));
-      const m = maleHints.some(h=>n.includes(h));
-      if (f && !m) return 'female';
-      if (m && !f) return 'male';
-      return 'neutral';
-    }
-
-    function loadVoices() {
-      if (!window.speechSynthesis) return;
-      availableVoices = window.speechSynthesis.getVoices()
-        .filter(v => v.lang && v.lang.toLowerCase().startsWith('en'));
-      const saved = localStorage.getItem('assistant_voice_name');
-      if (saved) {
-        const found = availableVoices.find(v => v.name === saved);
-        if (found) selectedVoice = found;
-      }
-      populateVoiceSelect();
-    }
-
-    function populateVoiceSelect() {
-      voiceSelect.innerHTML = '';
-      if (!availableVoices.length) {
-        const opt = document.createElement('option');
-        opt.textContent = 'No voices available';
-        opt.disabled = true;
-        voiceSelect.appendChild(opt);
-        return;
-      }
-      availableVoices.forEach(v => {
-        const gender = inferGender(v);
-        const opt = document.createElement('option');
-        opt.value = v.name;
-        opt.textContent = `${v.name} (${v.lang}${gender ? ', '+gender : ''})`;
-        voiceSelect.appendChild(opt);
-      });
-      if (selectedVoice) {
-        const still = availableVoices.find(v => v.name === selectedVoice.name);
-        if (still) voiceSelect.value = still.name;
-      } else {
-        selectedVoice = availableVoices[0];
-        voiceSelect.value = selectedVoice.name;
-      }
-    }
-
-    function playWithVoice(text, voiceObj) {
-      if (!voiceObj) return;
-      const u = new SpeechSynthesisUtterance(text);
-      u.voice = voiceObj;
-      u.rate = 1.0;  // Increased from 1.0 (range: 0.1 to 10)
-      u.pitch = 1.0;
-      u.volume = 1.0;
-      u.onend = () => {
-        updateStatus('idle','Ready to listen');
-      };
-      window.speechSynthesis.speak(u);
-    }
-
-    let useAzureTTS = true; // Toggle between Azure TTS and browser TTS
-
-    function containsDevanagari(text) {
-      return /[\u0900-\u097F]/.test(text);
     }
 
     let currentAudio = null;
 
     async function speakText(text) {
-        console.log('Speaking text via Azure TTS only:', text.substring(0, 50));
-        
-        // Stop any currently playing audio
-        if (currentAudio) {
-            currentAudio.pause();
-            currentAudio = null;
+      if (currentAudio) currentAudio.pause();
+      try {
+        const res = await fetch('/api/tts/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+          body: JSON.stringify({ text })
+        });
+        if (!res.ok) throw new Error('TTS failed');
+        const data = await res.json();
+        if (data.audio) {
+          const blob = base64ToBlob(data.audio, 'audio/wav');
+          const url = URL.createObjectURL(blob);
+          currentAudio = new Audio(url);
+          currentAudio.onended = () => { URL.revokeObjectURL(url); currentAudio = null; };
+          currentAudio.playbackRate = 1.1;
+          await currentAudio.play();
         }
-        
-        try {
-            const response = await fetch('/api/tts/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCookie('csrftoken')
-                },
-                body: JSON.stringify({ text: text })
-            });
-
-            if (!response.ok) {
-                throw new Error(`TTS failed: ${response.status}`);
-            }
-
-            const data = await response.json();
-            
-            if (data.audio) {
-                // Convert base64 to blob
-                const audioBlob = base64ToBlob(data.audio, 'audio/wav');
-                const audioUrl = URL.createObjectURL(audioBlob);
-                
-                // Create and play audio
-                currentAudio = new Audio(audioUrl);
-                
-                currentAudio.onended = () => {
-                    URL.revokeObjectURL(audioUrl);
-                    currentAudio = null;
-                    console.log('Azure TTS playback completed');
-                };
-                
-                currentAudio.onerror = (e) => {
-                    console.error('Audio playback error:', e);
-                    URL.revokeObjectURL(audioUrl);
-                    currentAudio = null;
-                };
-                
-                await currentAudio.play();
-                console.log('Azure TTS playback started');
-            }
-        } catch (error) {
-            console.error('TTS error:', error);
-            // Don't fall back to browser TTS - just log the error
-        }
+      } catch (e) {
+        console.error('TTS error:', e);
+      }
     }
 
-    function base64ToBlob(base64, mimeType) {
-        const byteCharacters = atob(base64);
-        const byteNumbers = new Array(byteCharacters.length);
-        
-        for (let i = 0; i < byteCharacters.length; i++) {
-            byteNumbers[i] = byteCharacters.charCodeAt(i);
-        }
-        
-        const byteArray = new Uint8Array(byteNumbers);
-        return new Blob([byteArray], { type: mimeType });
+    function base64ToBlob(base64, type) {
+      const bytes = atob(base64);
+      const arr = new Uint8Array(bytes.length);
+      for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+      return new Blob([arr], { type });
     }
 
     function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
-            for (let i = 0; i < cookies.length; i++) {
-                const cookie = cookies[i].trim();
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
-                }
-            }
-        }
-        return cookieValue;
-    }
-
-    voiceSelect.addEventListener('change', () => {
-      const chosen = availableVoices.find(v => v.name === voiceSelect.value);
-      selectedVoice = chosen || null;
-      if (chosen) localStorage.setItem('assistant_voice_name', chosen.name);
-    });
-
-    voiceDemoBtn.addEventListener('click', () => {
-      if (!selectedVoice) return;
-      const g = inferGender(selectedVoice);
-      playWithVoice(`Hello! This is the ${g} voice named ${selectedVoice.name}.`, selectedVoice);
-    });
-
-    /* Network helpers */
-    async function safeJson(res) {
-      const ct = res.headers.get('content-type') || '';
-      if (!ct.includes('application/json')) {
-        const t = await res.text();
-        throw new Error('Non-JSON response: ' + t.slice(0,120));
+      const cookies = document.cookie.split(';');
+      for (let c of cookies) {
+        const [k, v] = c.trim().split('=');
+        if (k === name) return decodeURIComponent(v);
       }
-      return res.json();
+      return null;
     }
 
     async function sendTextToServer(text) {
-      updateStatus('processing','AI is thinking...');
+      updateStatus('processing', 'AI thinking...');
       try {
         const res = await fetch("{% url 'api_ask' %}", {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text, domain: selectedDomain })
         });
-        if (!res.ok) {
-          const t = await res.text();
-          throw new Error(t || 'Server error');
-        }
-
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
-        let full = '';
-        let aiDiv = null;
+        let full = '', aiDiv = null;
 
         while (true) {
           const { value, done } = await reader.read();
           if (done) break;
-          const chunk = decoder.decode(value, { stream: true });
-          // SSE style chunks may contain "data: " lines
-          const parts = chunk.split(/\r?\n\r?\n/).filter(Boolean);
+          const parts = decoder.decode(value, { stream: true }).split(/\r?\n\r?\n/).filter(Boolean);
           for (const p of parts) {
-            const m = p.trim().replace(/^data:\s*/, '');
             try {
-              const obj = JSON.parse(m);
+              const obj = JSON.parse(p.replace(/^data:\s*/, ''));
               if (obj.chunk) {
-                if (!aiDiv) {
-                  addMessage('ai', '...'); // placeholder bubble
-                  aiDiv = chatContainer.lastElementChild.querySelector('.message-bubble');
-                }
+                if (!aiDiv) { addMessage('ai', '...'); aiDiv = chatContainer.lastElementChild.querySelector('.message-bubble'); }
                 full += obj.chunk;
                 if (aiDiv) aiDiv.textContent = full;
-              } else if (obj.done) {
-                // finished
-                if (!aiDiv) addMessage('ai', full);
-                updateStatus('idle','Ready to listen');
-              } else if (obj.error) {
-                addMessage('ai', 'Error: ' + obj.error);
-                updateStatus('idle','Ready to listen');
+              } else if (obj.done && !aiDiv) {
+                addMessage('ai', full);
               }
-            } catch (e) {
-              // ignore partial JSON / keep buffering
-            }
+            } catch (e) {}
           }
         }
-
-        // After stream completes, speak the full response
-        if (full) {
-          speakText(full);
-        }
+        if (full) speakText(full);
+        updateStatus('idle', 'Ready');
       } catch (e) {
-        addMessage('ai',' Request failed: ' + e.message);
-        updateStatus('idle','Ready to listen');
+        addMessage('ai', 'Error: ' + e.message);
+        updateStatus('idle', 'Ready');
       }
     }
 
-    /* Speech recognition */
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    let recognition;
-    if (!SpeechRecognition) {
-      statusText.textContent = 'Browser lacks Web Speech API. Use Chrome / Edge.';
-      startBtn.disabled = true;
-    } else {
-      recognition = new SpeechRecognition();
-      recognition.lang = 'en-US';
-      recognition.interimResults = false;
-      recognition.maxAlternatives = 1;
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.onstart = () => { updateStatus('listening', 'Listening...'); startBtn.disabled = true; stopBtn.disabled = false; };
+    recognition.onresult = (e) => { const text = e.results[0][0].transcript; addMessage('user', text); sendTextToServer(text); };
+    recognition.onend = () => { updateStatus('idle', 'Ready'); startBtn.disabled = false; stopBtn.disabled = true; };
 
-      recognition.onstart = () => {
-        updateStatus('listening','Listening...');
-        startBtn.disabled = true;
-        stopBtn.disabled = false;
-        listeningAnimation.classList.add('active');
-      };
-      recognition.onresult = (e) => {
-        const text = e.results[0][0].transcript;
-        addMessage('user', text);
-        sendTextToServer(text);
-      };
-      recognition.onerror = (e) => {
-        addMessage('ai','⚠️ Mic error: ' + e.error);
-        updateStatus('idle','Ready to listen');
-        startBtn.disabled = false;
-        stopBtn.disabled = true;
-        listeningAnimation.classList.remove('active');
-      };
-      recognition.onend = () => {
-        updateStatus('idle','Ready to listen');
-        startBtn.disabled = false;
-        stopBtn.disabled = true;
-        listeningAnimation.classList.remove('active');
-      };
-    }
-
-    /* Button events */
-    startBtn.addEventListener('click', () => recognition && recognition.start());
-    stopBtn.addEventListener('click', () => recognition && recognition.stop());
-    clearBtn.addEventListener('click', () => {
-      conversationHistory = [];
-      chatContainer.innerHTML = '';
-      chatContainer.appendChild(emptyState);
-      emptyState.style.display = 'flex';
-    });
+    startBtn.addEventListener('click', () => recognition.start());
+    stopBtn.addEventListener('click', () => recognition.stop());
+    clearBtn.addEventListener('click', () => chatContainer.innerHTML = '');
     resetBtn.addEventListener('click', async () => {
-      updateStatus('processing','Resetting...');
-      try {
-        const res = await fetch("{% url 'reset_context' %}", { method:'POST' });
-        const data = await safeJson(res);
-        if (res.ok && data.status === 'context reset') {
-          conversationHistory = [];
-          chatContainer.innerHTML = '';
-          chatContainer.appendChild(emptyState);
-          emptyState.style.display = 'flex';
-          addMessage('ai',' Conversation reset.');
-        } else {
-          addMessage('ai',' Reset failed: ' + (data.error || res.status));
-        }
-      } catch (e) {
-        addMessage('ai',' Reset failed: ' + e.message);
-      } finally {
-        updateStatus('idle','Ready to listen');
-      }
+      await fetch("{% url 'reset_context' %}", { method: 'POST' });
+      chatContainer.innerHTML = '';
     });
-
-    /* Init voices */
-    if (window.speechSynthesis) {
-      loadVoices();
-      window.speechSynthesis.onvoiceschanged = loadVoices;
-    }
-
-    emptyState.style.display = 'flex';
   </script>
 </body>
 </html>
