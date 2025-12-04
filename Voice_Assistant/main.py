@@ -1,7 +1,7 @@
 import os
 import logging
-import azure.cognitiveservices.speech as speechsdk
-from openai import AzureOpenAI
+import azure.cognitiveservices.speech as speechsdk            #type: ignore
+from openai import AzureOpenAI                                #type: ignore
 from src.config.config import MyConfig
 from src.prompts.system_prompt import VOICE_ASSISTANT_PROMPT
 

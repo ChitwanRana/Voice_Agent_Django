@@ -1,12 +1,12 @@
 import logging
 import json
 import base64
-import azure.cognitiveservices.speech as speechsdk
-from django.shortcuts import render
-from django.http import JsonResponse, StreamingHttpResponse
-from django.views.decorators.csrf import csrf_exempt
-from openai import AzureOpenAI
-from django.core.cache import cache
+import azure.cognitiveservices.speech as speechsdk          #type: ignore
+from django.shortcuts import render                         #type: ignore
+from django.http import JsonResponse, StreamingHttpResponse #type: ignore
+from django.views.decorators.csrf import csrf_exempt        #type: ignore
+from openai import AzureOpenAI                              #type: ignore
+from django.core.cache import cache                         #type: ignore
 from src.config.config import MyConfig
 from pathlib import Path
 

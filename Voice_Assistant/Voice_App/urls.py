@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path                                #type: ignore
 from .views import index, api_ask, reset_context,api_tts
 
 urlpatterns = [
