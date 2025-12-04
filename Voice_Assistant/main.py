@@ -41,7 +41,7 @@ speech_config.speech_synthesis_voice_name = "hi-IN-SwaraNeural"
 logger.info("Voice set to: hi-IN-SwaraNeural")
 
 # Configure audio output (use default speaker)
-audio_config = speechsdk.audio.AudioOutputConfig(use_default_speaker=True)
+audio_config = speechsdk.audio.AudioOutputConfig(use_default_speaker=True) 
 
 client = AzureOpenAI(
     api_key=config["AZURE_OPENAI_KEY"],

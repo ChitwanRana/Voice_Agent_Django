@@ -111,3 +111,31 @@ X-ConnectionId: 7eb5d95b54cd487bbc745b9fe78cab3d SessionId: 7eb5d95b54cd487bbc74
 2025-12-04 12:49:04,620 - INFO - Starting speech synthesis...
 2025-12-04 12:49:17,719 - INFO - Keyboard interrupt received - exiting gracefully
 2025-12-04 12:49:17,719 - INFO - Voice agent stopped
+2025-12-04 14:43:08,670 - INFO - Checking Azure Speech Service configuration...
+2025-12-04 14:43:08,671 - INFO - Region: centralindia
+2025-12-04 14:43:08,671 - INFO - Key present: Yes
+2025-12-04 14:43:08,671 - INFO - Key length: 84
+2025-12-04 14:43:08,671 - INFO - Voice set to: hi-IN-SwaraNeural
+2025-12-04 14:43:08,740 - INFO - Azure OpenAI deployment: gpt-4o-mini
+2025-12-04 14:43:08,753 - INFO - Voice agent started
+2025-12-04 14:43:08,753 - INFO - Listening for user input...
+2025-12-04 14:43:17,040 - ERROR - Speech recognition canceled: CancellationReason.Error
+2025-12-04 14:43:17,040 - ERROR - Error details: WebSocket upgrade failed: Authentication error (401). Please check subscription information and region name. SessionId: a6025e7a852941cfa5e10191b7abc0c3
+2025-12-04 14:43:17,041 - INFO - Voice agent stopped
+2025-12-04 14:43:42,670 - INFO - Checking Azure Speech Service configuration...
+2025-12-04 14:43:42,670 - INFO - Region: eastus2
+2025-12-04 14:43:42,670 - INFO - Key present: Yes
+2025-12-04 14:43:42,670 - INFO - Key length: 84
+2025-12-04 14:43:42,670 - INFO - Voice set to: hi-IN-SwaraNeural
+2025-12-04 14:43:42,736 - INFO - Azure OpenAI deployment: gpt-4o-mini
+2025-12-04 14:43:42,747 - INFO - Voice agent started
+2025-12-04 14:43:42,747 - INFO - Listening for user input...
+2025-12-04 14:43:48,280 - INFO - User input recognized: हैलो, कैसे हो आप?
+2025-12-04 14:43:48,281 - INFO - Requesting AI response...
+2025-12-04 14:43:50,501 - INFO - HTTP Request: POST https://ai-mukeshcd11007490ai050748139374.openai.azure.com/openai/deployments/gpt-4o-mini/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-12-04 14:43:50,515 - INFO - AI response: हैलो! मैं बिल्कुल बढ़िया हूँ, धन्यवाद! आप कैसे हैं?
+2025-12-04 14:43:50,515 - INFO - Starting speech synthesis...
+2025-12-04 14:43:59,656 - INFO - Speech synthesis completed successfully
+2025-12-04 14:43:59,656 - INFO - Listening for user input...
+2025-12-04 14:44:02,741 - INFO - Keyboard interrupt received - exiting gracefully
+2025-12-04 14:44:02,741 - INFO - Voice agent stopped

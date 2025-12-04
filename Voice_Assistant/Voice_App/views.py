@@ -2,6 +2,8 @@ import logging
 import json
 import httpx
 import base64
+import io
+import azure.cognitiveservices.speech as speechsdk
 from django.core.files.base import ContentFile
 from django.shortcuts import render
 from django.http import JsonResponse, StreamingHttpResponse
@@ -88,6 +90,39 @@ def _contains_devanagari(text: str) -> bool:
         return False
     return any('\u0900' <= ch <= '\u097F' for ch in text)
 
+# Cache Speech SDK components globally
+_speech_config = None
+_speech_synthesizer = None
+
+def get_speech_synthesizer():
+    """Initialize and cache Speech SDK synthesizer"""
+    global _speech_config, _speech_synthesizer
+    
+    if _speech_synthesizer is None:
+        logger.debug("Initializing Speech SDK synthesizer")
+        config = MyConfig.envFile()
+        
+        _speech_config = speechsdk.SpeechConfig(
+            subscription=config["SPEECH_KEY"],
+            region=config["SPEECH_REGION"]
+        )
+        
+        # Set to Hindi language for synthesis
+        _speech_config.speech_recognition_language = "hi-IN"
+        # Use native Hindi voice
+        _speech_config.speech_synthesis_voice_name = "hi-IN-SwaraNeural"
+        
+        # Create synthesizer without audio output (we'll get the audio data)
+        _speech_synthesizer = speechsdk.SpeechSynthesizer(
+            speech_config=_speech_config,
+            audio_config=None  # No audio output, we'll capture the data
+        )
+        
+        logger.info("Speech SDK synthesizer initialized with Hindi voice: hi-IN-SwaraNeural")
+    
+    return _speech_synthesizer
+
+
 @csrf_exempt
 def api_ask(request):
     logger.info("api_ask called. method=%s remote=%s", request.method, request.META.get("REMOTE_ADDR"))
@@ -122,14 +157,14 @@ def api_ask(request):
             history = history[-6:]
             logger.debug("api_ask: trimmed history to last 6 entries")
 
-        # Enhanced system prompt for direct, concise answers
-        base_personality = """You are a helpful AI voice assistant. 
-- Give DIRECT, SHORT answers to what the user asks
-- Answer in 1-2 sentences maximum for voice interaction
-- Match the user's language - if they speak Hinglish, reply in Hinglish
-- NO greetings, NO extra explanations unless asked
-- Be natural and conversational but BRIEF
-- Just answer the question directly"""
+        # Enhanced system prompt for Hindi responses
+        base_personality = """आप एक सहायक AI वॉइस असिस्टेंट हैं।
+- उपयोगकर्ता के प्रश्न का सीधा, संक्षिप्त उत्तर दें
+- वॉइस इंटरैक्शन के लिए अधिकतम 1-2 वाक्यों में जवाब दें
+- उपयोगकर्ता की भाषा से मेल खाएं - यदि वे हिंगलिश बोलते हैं, तो हिंगलिश में जवाब दें
+- बिना अभिवादन, बिना अतिरिक्त स्पष्टीकरण (जब तक नहीं पूछा जाए)
+- स्वाभाविक और संवादात्मक रहें लेकिन संक्षिप्त रहें
+- सीधे प्रश्न का उत्तर दें"""
 
         # Prepare system prompt
         if selected_domain == "normal":
@@ -138,13 +173,15 @@ def api_ask(request):
             kb_text = load_kb(selected_domain)
             system_prompt = (
                 f"{base_personality}\n\n"
-                f"Answer ONLY using the {selected_domain} knowledge base below.\n"
-                f"Give direct answers with specific information (doctor names, room numbers, timings).\n"
-                f"If information is missing, say: 'Sorry, I don't have that information.'\n\n"
+                f"केवल {selected_domain} नॉलेज बेस का उपयोग करके उत्तर दें।\n"
+                f"विशिष्ट जानकारी के साथ सीधे उत्तर दें (डॉक्टर के नाम, कमरा संख्या, समय)।\n"
+                f"यदि जानकारी उपलब्ध नहीं है, तो कहें: 'क्षमा करें, मेरे पास यह जानकारी नहीं है।'\n\n"
                 f"--- KB START ---\n{kb_text}\n--- KB END ---"
             )
+        
+        # Force Hindi responses if Devanagari detected
         if is_hindi_script:
-            system_prompt = f"Reply in Hindi. {system_prompt}"
+            system_prompt = f"हिंदी में उत्तर दें। {system_prompt}"
 
         logger.debug("api_ask: system_prompt_len=%d preview=%s", len(system_prompt), system_prompt[:300].replace("\n", " "))
 
@@ -160,7 +197,7 @@ def api_ask(request):
                 stream = client.chat.completions.create(
                     model=MyConfig.envFile()["AZURE_OPENAI_DEPLOYMENT_NAME"],
                     messages=messages,
-                    max_tokens=120,
+                    max_tokens=150,
                     temperature=0.7,
                     stream=True
                 )
@@ -225,7 +262,7 @@ def reset_context(request):
 
 @csrf_exempt
 def api_tts(request):
-    """Text-to-Speech using Azure Speech SDK with Arjuna/Madhur multilingual voice (Indian accent)"""
+    """Text-to-Speech using Azure Speech SDK ONLY - native Hindi voice"""
     logger.info("api_tts called. method=%s remote=%s", request.method, request.META.get("REMOTE_ADDR"))
     if request.method != "POST":
         logger.warning("api_tts: non-POST request")
@@ -234,66 +271,69 @@ def api_tts(request):
     try:
         payload = json.loads(request.body)
         text = (payload.get("text") or "").strip()
-        lang = (payload.get("lang") or "").strip().lower()  # 'hi' or 'en'
-        logger.debug("api_tts: text_len=%d lang=%s", len(text), lang)
+        logger.debug("api_tts: text_len=%d text_preview=%s", len(text), text[:100])
 
         if not text:
             logger.warning("api_tts: empty text")
             return JsonResponse({"error": "Empty text"}, status=400)
 
-        config = MyConfig.envFile()
-        speech_key = config.get("SPEECH_KEY") or config.get("AZURE_SPEECH_KEY")
-        service_region = config.get("SPEECH_REGION") or config.get("AZURE_SPEECH_REGION")
-
-        if not speech_key or not service_region:
-            logger.error("api_tts: missing speech config. keys_present=%s region=%s", bool(speech_key), service_region)
-            return JsonResponse({"error": "Speech config missing"}, status=500)
-
-        # Use Arjuna/Madhur multilingual voice for Indian accent (both Hindi and English)
-        # Default to male multilingual voice
-        chosen_voice = config.get("AZURE_TTS_VOICE", "hi-IN-MadhurMultilingualNeural")
+        # Detect language
+        is_hindi = _contains_devanagari(text)
         
-        # Alternative voices:
-        # "hi-IN-SwaraMultilingualNeural" - Female multilingual (Hindi + English)
-        # "hi-IN-MadhurMultilingualNeural" - Male multilingual (Hindi + English) - Arjuna
+        # Get Speech SDK synthesizer
+        synthesizer = get_speech_synthesizer()
         
-        # Set language for proper pronunciation
-        xml_lang = "hi-IN" if lang == "hi" else "en-IN"
+        # Choose voice based on content
+        if is_hindi:
+            voice_name = "hi-IN-SwaraNeural"  # Native Hindi female
+            lang = "hi-IN"
+        else:
+            voice_name = "en-IN-NeerjaNeural"  # Indian English female
+            lang = "en-IN"
         
-        endpoint = f"https://{service_region}.tts.speech.microsoft.com/cognitiveservices/v1"
+        logger.debug("api_tts: using voice=%s lang=%s", voice_name, lang)
 
-        logger.debug("api_tts: endpoint=%s chosen_voice=%s xml_lang=%s", endpoint, chosen_voice, xml_lang)
-
-        headers = {
-            "Ocp-Apim-Subscription-Key": speech_key,
-            "Content-Type": "application/ssml+xml",
-            "X-Microsoft-OutputFormat": "audio-16khz-128kbitrate-mono-mp3"
-        }
-
-        # SSML with multilingual voice - handles both Hindi and English with Indian accent
-        ssml = f"""<speak version='1.0' xml:lang='{xml_lang}'>
-            <voice xml:lang='{xml_lang}' name='{chosen_voice}'>
-                <prosody rate='1.0' pitch='0%'>
+        # Create SSML for better pronunciation
+        ssml = f"""<speak version='1.0' xml:lang='{lang}' xmlns='http://www.w3.org/2001/10/synthesis'>
+            <voice name='{voice_name}'>
+                <prosody rate='0.95' pitch='0%'>
                     {text}
                 </prosody>
             </voice>
         </speak>"""
 
         try:
-            response = httpx.post(endpoint, headers=headers, content=ssml, timeout=30)
-            logger.debug("api_tts: httpx.post returned status=%s bytes=%d", response.status_code, len(response.content or b""))
-            if response.status_code == 200:
-                audio_base64 = base64.b64encode(response.content).decode('utf-8')
-                logger.info("api_tts: TTS succeeded, audio_bytes=%d voice=%s", len(response.content), chosen_voice)
-                return JsonResponse({"audio": audio_base64, "format": "mp3"})
+            # Synthesize speech using Azure SDK
+            logger.info("api_tts: starting synthesis with Azure Speech SDK")
+            result = synthesizer.speak_ssml_async(ssml).get()
+            
+            # Check synthesis result
+            if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
+                # Get audio data
+                audio_data = result.audio_data
+                audio_base64 = base64.b64encode(audio_data).decode('utf-8')
+                
+                logger.info("api_tts: synthesis successful, audio_bytes=%d voice=%s", len(audio_data), voice_name)
+                return JsonResponse({
+                    "audio": audio_base64,
+                    "format": "wav"  # Azure SDK returns WAV format by default
+                })
+                
+            elif result.reason == speechsdk.ResultReason.Canceled:
+                cancellation = result.cancellation_details
+                error_msg = f"Speech synthesis canceled: {cancellation.reason}"
+                if cancellation.reason == speechsdk.CancellationReason.Error:
+                    error_msg += f" - {cancellation.error_details}"
+                logger.error("api_tts: %s", error_msg)
+                return JsonResponse({"error": error_msg}, status=500)
             else:
-                truncated = (response.text or "")[:1000]
-                logger.error("api_tts: TTS API error: %s - %s", response.status_code, truncated)
-                return JsonResponse({"error": f"TTS failed: {response.status_code}"}, status=500)
-        except httpx.RequestError:
-            logger.exception("api_tts: httpx request error when calling TTS endpoint")
-            return JsonResponse({"error": "TTS request failed"}, status=500)
+                logger.error("api_tts: unexpected result reason: %s", result.reason)
+                return JsonResponse({"error": "Speech synthesis failed"}, status=500)
+                
+        except Exception as e:
+            logger.exception("api_tts: Azure Speech SDK error")
+            return JsonResponse({"error": f"TTS error: {str(e)}"}, status=500)
 
-    except Exception:
+    except Exception as e:
         logger.exception("api_tts: unexpected exception")
         return JsonResponse({"error": "TTS error"}, status=500)

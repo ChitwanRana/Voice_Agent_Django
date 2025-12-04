@@ -533,59 +533,87 @@
       return /[\u0900-\u097F]/.test(text);
     }
 
+    let currentAudio = null;
+
     async function speakText(text) {
-      if (!text) return;
-      const isHindi = containsDevanagari(text);
-
-      if (useAzureTTS) {
-        try {
-          updateStatus('speaking', 'AI is speaking...');
-          const res = await fetch("{% url 'api_tts' %}", {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text, lang: isHindi ? 'hi' : 'en' })
-          });
-          if (!res.ok) throw new Error('TTS request failed');
-
-          const data = await res.json();
-          const binary = atob(data.audio);
-          const len = binary.length;
-          const buffer = new ArrayBuffer(len);
-          const view = new Uint8Array(buffer);
-          for (let i = 0; i < len; i++) view[i] = binary.charCodeAt(i);
-
-          const blob = new Blob([view], { type: 'audio/mpeg' });
-          const url = URL.createObjectURL(blob);
-          const audio = new Audio(url);
-          audio.onended = () => {
-            URL.revokeObjectURL(url);
-            updateStatus('idle','Ready to listen');
-          };
-          audio.onerror = () => {
-            URL.revokeObjectURL(url);
-            updateStatus('idle','Ready to listen');
-          };
-          await audio.play();
-        } catch (e) {
-          console.error('Azure TTS error', e);
-          // fallback to browser TTS with proper lang tag
-          speakWithBrowserTTS(text, isHindi ? 'hi-IN' : 'en-US');
+        console.log('Speaking text via Azure TTS only:', text.substring(0, 50));
+        
+        // Stop any currently playing audio
+        if (currentAudio) {
+            currentAudio.pause();
+            currentAudio = null;
         }
-      } else {
-        speakWithBrowserTTS(text, isHindi ? 'hi-IN' : 'en-US');
-      }
+        
+        try {
+            const response = await fetch('/api/tts/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({ text: text })
+            });
+
+            if (!response.ok) {
+                throw new Error(`TTS failed: ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            if (data.audio) {
+                // Convert base64 to blob
+                const audioBlob = base64ToBlob(data.audio, 'audio/wav');
+                const audioUrl = URL.createObjectURL(audioBlob);
+                
+                // Create and play audio
+                currentAudio = new Audio(audioUrl);
+                
+                currentAudio.onended = () => {
+                    URL.revokeObjectURL(audioUrl);
+                    currentAudio = null;
+                    console.log('Azure TTS playback completed');
+                };
+                
+                currentAudio.onerror = (e) => {
+                    console.error('Audio playback error:', e);
+                    URL.revokeObjectURL(audioUrl);
+                    currentAudio = null;
+                };
+                
+                await currentAudio.play();
+                console.log('Azure TTS playback started');
+            }
+        } catch (error) {
+            console.error('TTS error:', error);
+            // Don't fall back to browser TTS - just log the error
+        }
     }
 
-    function speakWithBrowserTTS(text, langTag = 'en-US') {
-      if (!window.speechSynthesis) return;
-      window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = langTag;
-      u.rate = 1.0;
-      u.pitch = 1.0;
-      u.volume = 1.0;
-      u.onend = () => { updateStatus('idle','Ready to listen'); };
-      window.speechSynthesis.speak(u);
+    function base64ToBlob(base64, mimeType) {
+        const byteCharacters = atob(base64);
+        const byteNumbers = new Array(byteCharacters.length);
+        
+        for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        
+        const byteArray = new Uint8Array(byteNumbers);
+        return new Blob([byteArray], { type: mimeType });
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
     }
 
     voiceSelect.addEventListener('change', () => {
