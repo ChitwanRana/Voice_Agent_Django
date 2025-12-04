@@ -1,11 +1,9 @@
+import os
+import logging
 import azure.cognitiveservices.speech as speechsdk
 from openai import AzureOpenAI
 from src.config.config import MyConfig
 from src.prompts.system_prompt import VOICE_ASSISTANT_PROMPT
-import logging
-import os
-from datetime import datetime
-
 
 logs_dir = os.path.join("src","logs")
 if not os.path.exists(logs_dir):
@@ -36,13 +34,13 @@ speech_config = speechsdk.SpeechConfig(
     region=config["SPEECH_REGION"]
 )
 
-# language of the bot, english by default
-speech_config.speech_recognition_language = "en-US"
+speech_config.speech_recognition_language = "hi-IN"
 
-# Using default voice (no specific voice name set)
-logger.info("Voice set to: Default system voice")
+# Use Arjuna/Madhur Multilingual Voice for Indian accent
+speech_config.speech_synthesis_voice_name = "hi-IN-SwaraNeural"
+logger.info("Voice set to: hi-IN-SwaraNeural")
 
-# Set speech synthesis output to default speaker
+# Configure audio output (use default speaker)
 audio_config = speechsdk.audio.AudioOutputConfig(use_default_speaker=True)
 
 client = AzureOpenAI(
@@ -60,7 +58,6 @@ speech_synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config, au
 print("Speak to the AI agent (say 'exit' to stop)...")
 print("Make sure your microphone is connected and working...")
 logger.info("Voice agent started")
-
 
 
 while True:

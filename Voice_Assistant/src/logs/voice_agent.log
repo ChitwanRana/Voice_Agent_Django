@@ -18,3 +18,96 @@
 2025-11-07 15:29:13,078 - INFO - HTTP Request: POST https://ai-mukeshcd11007490ai050748139374.openai.azure.com/openai/deployments/gpt-4o-mini/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
 2025-11-07 15:29:13,084 - INFO - AI response: Absolutely! New York City is a bustling metropolis known for its iconic skyline, diverse culture, and vibrant arts scene. You�ve got famous landmarks like Times Square, Central Park, and the Statue of Liberty. The food scene is incredible too, with everything from street food to fine dining. It�s definitely a place where there�s always something happening, whether it�s a Broadway show or a cool gallery opening. Are you thinking of visiting or just curious about it?
 2025-11-07 15:29:13,084 - INFO - Starting speech synthesis...
+2025-12-03 22:35:41,019 - INFO - Checking Azure Speech Service configuration...
+2025-12-03 22:35:41,020 - INFO - Region: None
+2025-12-03 22:35:41,020 - INFO - Key present: No
+2025-12-03 22:35:41,020 - INFO - Key length: 0
+2025-12-04 12:42:52,771 - INFO - Checking Azure Speech Service configuration...
+2025-12-04 12:42:52,771 - INFO - Region: centralindia
+2025-12-04 12:42:52,771 - INFO - Key present: Yes
+2025-12-04 12:42:52,771 - INFO - Key length: 84
+2025-12-04 12:42:52,771 - INFO - Voice set to: hi-IN-SwaraNeural (Hindi)
+2025-12-04 12:42:52,838 - INFO - Azure OpenAI deployment: gpt-4o-mini
+2025-12-04 12:44:19,321 - INFO - Checking Azure Speech Service configuration...
+2025-12-04 12:44:19,321 - INFO - Region: centralindia
+2025-12-04 12:44:19,321 - INFO - Key present: Yes
+2025-12-04 12:44:19,321 - INFO - Key length: 84
+2025-12-04 12:44:19,321 - INFO - Voice set to: hi-IN-MadhurMultilingualNeural (Arjuna - Multilingual)
+2025-12-04 12:44:19,386 - INFO - Azure OpenAI deployment: gpt-4o-mini
+2025-12-04 12:44:19,396 - INFO - Voice agent started
+2025-12-04 12:44:19,397 - INFO - Listening for user input...
+2025-12-04 12:44:23,008 - ERROR - Speech recognition canceled: CancellationReason.Error
+2025-12-04 12:44:23,008 - ERROR - Error details: WebSocket upgrade failed: Authentication error (401). Please check subscription information and region name. SessionId: ca8ad3b13e7b45d4bd65a6d9445f6236
+2025-12-04 12:44:23,008 - INFO - Voice agent stopped
+2025-12-04 12:44:54,833 - INFO - Checking Azure Speech Service configuration...
+2025-12-04 12:44:54,833 - INFO - Region: east-us
+2025-12-04 12:44:54,834 - INFO - Key present: Yes
+2025-12-04 12:44:54,834 - INFO - Key length: 84
+2025-12-04 12:44:54,834 - INFO - Voice set to: hi-IN-MadhurMultilingualNeural (Arjuna - Multilingual)
+2025-12-04 12:44:54,901 - INFO - Azure OpenAI deployment: gpt-4o-mini
+2025-12-04 12:44:54,912 - INFO - Voice agent started
+2025-12-04 12:44:54,912 - INFO - Listening for user input...
+2025-12-04 12:44:56,157 - ERROR - Speech recognition canceled: CancellationReason.Error
+2025-12-04 12:44:56,158 - ERROR - Error details: Connection failed (no connection to the remote host). Internal error: 1. Error details: Failed with error: WS_OPEN_ERROR_UNDERLYING_IO_OPEN_FAILED
+wss://east-us.stt.speech.microsoft.com/stt/speech/universal/v2
+X-ConnectionId: 7eb5d95b54cd487bbc745b9fe78cab3d SessionId: 7eb5d95b54cd487bbc745b9fe78cab3d
+2025-12-04 12:44:56,158 - INFO - Voice agent stopped
+2025-12-04 12:45:09,811 - INFO - Checking Azure Speech Service configuration...
+2025-12-04 12:45:09,811 - INFO - Region: eastus
+2025-12-04 12:45:09,811 - INFO - Key present: Yes
+2025-12-04 12:45:09,811 - INFO - Key length: 84
+2025-12-04 12:45:09,812 - INFO - Voice set to: hi-IN-MadhurMultilingualNeural (Arjuna - Multilingual)
+2025-12-04 12:45:09,876 - INFO - Azure OpenAI deployment: gpt-4o-mini
+2025-12-04 12:45:09,886 - INFO - Voice agent started
+2025-12-04 12:45:09,886 - INFO - Listening for user input...
+2025-12-04 12:45:19,069 - ERROR - Speech recognition canceled: CancellationReason.Error
+2025-12-04 12:45:19,069 - ERROR - Error details: WebSocket upgrade failed: Authentication error (401). Please check subscription information and region name. SessionId: 23c89875460b4450aeeea2ef16936751
+2025-12-04 12:45:19,069 - INFO - Voice agent stopped
+2025-12-04 12:47:27,289 - INFO - Checking Azure Speech Service configuration...
+2025-12-04 12:47:27,289 - INFO - Region: eastus2
+2025-12-04 12:47:27,289 - INFO - Key present: Yes
+2025-12-04 12:47:27,289 - INFO - Key length: 84
+2025-12-04 12:47:27,290 - INFO - Voice set to: hi-IN-MadhurMultilingualNeural (Arjuna - Multilingual)
+2025-12-04 12:47:27,358 - INFO - Azure OpenAI deployment: gpt-4o-mini
+2025-12-04 12:47:27,371 - INFO - Voice agent started
+2025-12-04 12:47:27,371 - INFO - Listening for user input...
+2025-12-04 12:47:33,310 - INFO - User input recognized: हैलो, तुम कैसे हो?
+2025-12-04 12:47:33,310 - INFO - Requesting AI response...
+2025-12-04 12:47:35,439 - INFO - HTTP Request: POST https://ai-mukeshcd11007490ai050748139374.openai.azure.com/openai/deployments/gpt-4o-mini/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-12-04 12:47:35,444 - INFO - AI response: हैलो! मैं बिल्कुल अच्छा हूँ, धन्यवाद! आप कैसे हैं?
+2025-12-04 12:47:35,444 - INFO - Starting speech synthesis...
+2025-12-04 12:47:37,082 - ERROR - Speech synthesis canceled: CancellationReason.Error
+2025-12-04 12:47:37,083 - ERROR - Error details: Connection was closed by the remote host. Error code: 1007. Error details: Unsupported voice hi-IN-MadhurMultilingualNeural. USP state: TurnStarted. Received audio size: 0 bytes.
+2025-12-04 12:47:37,083 - INFO - Listening for user input...
+2025-12-04 12:47:43,998 - INFO - User input recognized: अर्जुन यूज़ करना।
+2025-12-04 12:47:43,998 - INFO - Requesting AI response...
+2025-12-04 12:47:45,803 - INFO - HTTP Request: POST https://ai-mukeshcd11007490ai050748139374.openai.azure.com/openai/deployments/gpt-4o-mini/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-12-04 12:47:45,805 - INFO - AI response: क्या आप अर्जुन के बारे में थोड़ा और बता सकते हैं? कौन सा अर्जुन आप चाहते हैं?
+2025-12-04 12:47:45,805 - INFO - Starting speech synthesis...
+2025-12-04 12:47:47,161 - ERROR - Speech synthesis canceled: CancellationReason.Error
+2025-12-04 12:47:47,161 - ERROR - Error details: Connection was closed by the remote host. Error code: 1007. Error details: Unsupported voice hi-IN-MadhurMultilingualNeural. USP state: TurnStarted. Received audio size: 0 bytes.
+2025-12-04 12:47:47,161 - INFO - Listening for user input...
+2025-12-04 12:47:52,561 - INFO - Keyboard interrupt received - exiting gracefully
+2025-12-04 12:47:52,561 - INFO - Voice agent stopped
+2025-12-04 12:48:41,387 - INFO - Checking Azure Speech Service configuration...
+2025-12-04 12:48:41,387 - INFO - Region: eastus2
+2025-12-04 12:48:41,387 - INFO - Key present: Yes
+2025-12-04 12:48:41,387 - INFO - Key length: 84
+2025-12-04 12:48:41,387 - INFO - Voice set to: hi-IN-SwaraNeural
+2025-12-04 12:48:41,454 - INFO - Azure OpenAI deployment: gpt-4o-mini
+2025-12-04 12:48:41,466 - INFO - Voice agent started
+2025-12-04 12:48:41,466 - INFO - Listening for user input...
+2025-12-04 12:48:46,807 - INFO - User input recognized: हैलो, तुम कैसे हो?
+2025-12-04 12:48:46,807 - INFO - Requesting AI response...
+2025-12-04 12:48:48,654 - INFO - HTTP Request: POST https://ai-mukeshcd11007490ai050748139374.openai.azure.com/openai/deployments/gpt-4o-mini/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-12-04 12:48:48,661 - INFO - AI response: हैलो! मैं ठीक हूं, धन्यवाद! तुम कैसे हो?
+2025-12-04 12:48:48,661 - INFO - Starting speech synthesis...
+2025-12-04 12:48:57,454 - INFO - Speech synthesis completed successfully
+2025-12-04 12:48:57,455 - INFO - Listening for user input...
+2025-12-04 12:49:02,418 - INFO - User input recognized: मैं भी बढ़िया हूँ, लेकिन काम नहीं बन रहा अच्छे से।
+2025-12-04 12:49:02,418 - INFO - Requesting AI response...
+2025-12-04 12:49:04,618 - INFO - HTTP Request: POST https://ai-mukeshcd11007490ai050748139374.openai.azure.com/openai/deployments/gpt-4o-mini/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-12-04 12:49:04,620 - INFO - AI response: ये सुनकर अच्छा लगा कि आप ठीक हैं, लेकिन काम में परेशानी होना ठीक नहीं। क्या कुछ खास है जो आपको मुश्किल लग रहा है?maybe I can help!
+2025-12-04 12:49:04,620 - INFO - Starting speech synthesis...
+2025-12-04 12:49:17,719 - INFO - Keyboard interrupt received - exiting gracefully
+2025-12-04 12:49:17,719 - INFO - Voice agent stopped
