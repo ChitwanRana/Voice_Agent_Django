@@ -67,43 +67,63 @@
       border-radius:8px; font-size:12px;
     }
 
-    /* ============= AVATAR ANIMATIONS ============= */
+    /* ============= AVATAR STYLES ============= */
     .avatar-container {
       position: relative;
-      width: 260px;
-      margin: 15px auto;
+      width: 300px;
+      margin: 20px auto;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
     }
 
-    /* Floating animation */
-    .avatar-face {
+    .avatar-gif {
       width: 100%;
-      border-radius:20px;
-      animation: floatAvatar 4s ease-in-out infinite;
+      display: block;
+      border-radius: 20px;
     }
 
-    @keyframes floatAvatar {
-      0% { transform: translateY(0px); }
-      50% { transform: translateY(-8px); }
-      100% { transform: translateY(0px); }
+    /* Speaking glow effect */
+    .avatar-container.speaking {
+      box-shadow: 0 8px 32px rgba(102, 126, 234, 0.6);
+      animation: pulse-glow 1.5s ease-in-out infinite;
     }
 
-    /* Mouth positioning */
-    #mouth {
-      position:absolute;
-      bottom:58px;
-      left:95px;
-      width:75px;
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 8px 32px rgba(102, 126, 234, 0.6); }
+      50% { box-shadow: 0 12px 48px rgba(102, 126, 234, 0.9); }
     }
 
-    /* Talking animation (simple open-close loop) */
-    .talking {
-      animation: talkAnim 0.18s infinite;
+    /* Sound wave animation */
+    .sound-wave {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 4px;
+      align-items: flex-end;
+      height: 40px;
     }
 
-    @keyframes talkAnim {
-      0% { transform: scaleY(1); }
-      50% { transform: scaleY(0.4); }
-      100% { transform: scaleY(1); }
+    .sound-wave.hidden { display: none; }
+
+    .sound-wave span {
+      width: 4px;
+      background: linear-gradient(180deg, #667eea, #764ba2);
+      border-radius: 4px;
+      animation: wave 1.2s ease-in-out infinite;
+    }
+
+    .sound-wave span:nth-child(1) { animation-delay: 0s; }
+    .sound-wave span:nth-child(2) { animation-delay: 0.1s; }
+    .sound-wave span:nth-child(3) { animation-delay: 0.2s; }
+    .sound-wave span:nth-child(4) { animation-delay: 0.3s; }
+    .sound-wave span:nth-child(5) { animation-delay: 0.4s; }
+
+    @keyframes wave {
+      0%, 100% { height: 10px; }
+      50% { height: 35px; }
     }
   </style>
 </head>
@@ -130,8 +150,17 @@
 
     <!-- AVATAR BLOCK -->
     <div class="avatar-container">
-      <img src="/static/avatar/face.png" class="avatar-face">
-      <img id="mouth" src="/static/mouth/rest.png">
+      <video id="avatarVideo" 
+             class="avatar-gif" 
+             loop 
+             muted
+             playsinline>
+        <source src="{% static 'avatar/idle.mp4' %}" type="video/mp4">
+      </video>
+      <!-- Overlay animated wave bars -->
+      <div id="soundWave" class="sound-wave hidden">
+        <span></span><span></span><span></span><span></span><span></span>
+      </div>
     </div>
 
     <div class="chat-container" id="chatContainer"></div>
@@ -158,6 +187,9 @@ const statusIndicator = document.getElementById('statusIndicator');
 const statusText = document.getElementById('statusText');
 const chatContainer = document.getElementById('chatContainer');
 const domainSelect = document.getElementById('domainSelect');
+const avatarImage = document.getElementById('avatarImage');
+const avatarContainer = document.querySelector('.avatar-container');
+const soundWave = document.getElementById('soundWave');
 
 let selectedDomain = localStorage.getItem('selected_domain') || 'normal';
 domainSelect.value = selectedDomain;
@@ -179,15 +211,28 @@ function addMessage(role, content) {
   chatContainer.scrollTop = chatContainer.scrollHeight;
 }
 
-/* ============= AVATAR TALKING ANIMATION ============= */
-const mouth = document.getElementById("mouth");
-
+/* ============= AVATAR CONTROL ============= */
 function startTalking() {
-  mouth.classList.add("talking");
+  avatarContainer.classList.add('speaking');
+  soundWave.classList.remove('hidden');
+  
+  // Play video when AI is speaking
+  const avatarVideo = document.getElementById('avatarVideo');
+  if (avatarVideo) {
+    avatarVideo.play();
+  }
 }
 
 function stopTalking() {
-  mouth.classList.remove("talking");
+  avatarContainer.classList.remove('speaking');
+  soundWave.classList.add('hidden');
+  
+  // Pause video and reset to first frame when AI stops speaking
+  const avatarVideo = document.getElementById('avatarVideo');
+  if (avatarVideo) {
+    avatarVideo.pause();
+    avatarVideo.currentTime = 0; // Reset to beginning
+  }
 }
 
 /* ============= TTS (AI SPEAKING) ============= */
