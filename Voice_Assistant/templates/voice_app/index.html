@@ -157,7 +157,6 @@
              playsinline>
         <source src="{% static 'avatar/idle.mp4' %}" type="video/mp4">
       </video>
-      <!-- Overlay animated wave bars -->
       <div id="soundWave" class="sound-wave hidden">
         <span></span><span></span><span></span><span></span><span></span>
       </div>
@@ -187,9 +186,9 @@ const statusIndicator = document.getElementById('statusIndicator');
 const statusText = document.getElementById('statusText');
 const chatContainer = document.getElementById('chatContainer');
 const domainSelect = document.getElementById('domainSelect');
-const avatarImage = document.getElementById('avatarImage');
 const avatarContainer = document.querySelector('.avatar-container');
 const soundWave = document.getElementById('soundWave');
+const avatarVideo = document.getElementById('avatarVideo');
 
 let selectedDomain = localStorage.getItem('selected_domain') || 'normal';
 domainSelect.value = selectedDomain;
@@ -215,9 +214,6 @@ function addMessage(role, content) {
 function startTalking() {
   avatarContainer.classList.add('speaking');
   soundWave.classList.remove('hidden');
-  
-  // Play video when AI is speaking
-  const avatarVideo = document.getElementById('avatarVideo');
   if (avatarVideo) {
     avatarVideo.play();
   }
@@ -226,12 +222,9 @@ function startTalking() {
 function stopTalking() {
   avatarContainer.classList.remove('speaking');
   soundWave.classList.add('hidden');
-  
-  // Pause video and reset to first frame when AI stops speaking
-  const avatarVideo = document.getElementById('avatarVideo');
   if (avatarVideo) {
     avatarVideo.pause();
-    avatarVideo.currentTime = 0; // Reset to beginning
+    avatarVideo.currentTime = 0;
   }
 }
 
@@ -248,14 +241,12 @@ async function speakText(text) {
   });
 
   const data = await res.json();
-
   if (!data.audio) return;
 
   const blob = base64ToBlob(data.audio, 'audio/wav');
   const url = URL.createObjectURL(blob);
 
   currentAudio = new Audio(url);
-
   currentAudio.onplay = () => startTalking();
   currentAudio.onended = () => {
     stopTalking();
@@ -332,7 +323,8 @@ recognition.lang = 'en-US';
 
 recognition.onstart = () => {
   updateStatus('listening', 'Listening...');
-  startBtn.disabled = true; stopBtn.disabled = false;
+  startBtn.disabled = true;
+  stopBtn.disabled = false;
 };
 
 recognition.onresult = (e) => {
@@ -343,7 +335,8 @@ recognition.onresult = (e) => {
 
 recognition.onend = () => {
   updateStatus('idle', 'Ready');
-  startBtn.disabled = false; stopBtn.disabled = true;
+  startBtn.disabled = false;
+  stopBtn.disabled = true;
 };
 
 startBtn.addEventListener('click', () => recognition.start());

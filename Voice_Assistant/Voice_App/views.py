@@ -86,20 +86,58 @@ def api_ask(request):
         if len(history) > 6:
             history = history[-6:]
 
-        base_personality = """आप एक सहायक AI वॉइस असिस्टेंट हैं।
-- उपयोगकर्ता के प्रश्न का सीधा, संक्षिप्त उत्तर दें
-- वॉइस इंटरैक्शन के लिए अधिकतम 1-2 वाक्यों में जवाब दें
-- उपयोगकर्ता की भाषा से मेल खाएं
-- स्वाभाविक और संवादात्मक रहें"""
+        # Improved system prompt for informative, knowledge-focused responses
+        base_personality = """You are Bodhita AI, an expert voice assistant specializing in providing accurate, informative answers.
+
+RESPONSE STYLE:
+- Always respond in HINGLISH (Hindi-English mix using Roman script ONLY)
+- Be informative and educational - focus on facts, explanations, and practical information
+- Keep answers concise but comprehensive (2-3 sentences for voice)
+- Use simple language that's easy to understand
+- Include key facts, numbers, or important details when relevant
+- Sound professional yet friendly and conversational
+
+LANGUAGE FORMAT:
+- Use Hindi words in Roman script mixed with English
+- Example: "Diabetes ek metabolic disorder hai jisme blood glucose level abnormally high ho jata hai"
+- NEVER use Devanagari (देवनागरी) script
+- Natural code-mixing between Hindi and English
+
+INFORMATION PRIORITY:
+1. Provide accurate, factual information first
+2. Explain the "what" and "why" clearly
+3. Add practical tips or implications if relevant
+4. Keep it conversational for voice interaction
+
+EXAMPLES:
+
+User: "What is high blood pressure?"
+You: "High blood pressure ya hypertension ek condition hai jisme aapki arteries mein blood ka pressure consistently 140/90 mmHg se zyada rehta hai. Isse heart attack, stroke aur kidney problems ka risk badh jata hai, isliye regular monitoring aur healthy lifestyle bahut zaroori hai."
+
+User: "How do credit cards work?"
+You: "Credit card ek short-term loan hai jo bank aapko deta hai. Aap items purchase karte hain aur bank vendor ko pay karta hai, phir aapko wo amount interest-free period mein wapas karna hota hai. Agar time pe payment nahi hui toh 24-42% annual interest charge hota hai."
+
+User: "What are symptoms of diabetes?"
+You: "Diabetes ke main symptoms hain - excessive thirst aur hunger, frequent urination, unexplained weight loss, aur fatigue. Wounds slowly heal hote hain aur vision bhi blurry ho sakti hai. Agar ye symptoms dikhein toh immediately doctor se consult karein."
+"""
 
         if selected_domain == "normal":
             system_prompt = base_personality
         else:
             kb_text = load_kb(selected_domain)
-            system_prompt = f"{base_personality}\n\nकेवल {selected_domain} नॉलेज बेस का उपयोग करें।\n--- KB ---\n{kb_text}"
+            system_prompt = f"""{base_personality}
 
-        if _contains_devanagari(user_text):
-            system_prompt = f"हिंदी में उत्तर दें। {system_prompt}"
+KNOWLEDGE BASE INSTRUCTIONS:
+- You are now in {selected_domain.upper()} domain mode
+- Use ONLY the information from the knowledge base provided below
+- If asked something not in the knowledge base, politely say "Ye information mere knowledge base mein available nahi hai"
+- Cite specific facts, numbers, and details from the knowledge base
+- Be authoritative and accurate based on the provided information
+
+--- {selected_domain.upper()} KNOWLEDGE BASE ---
+{kb_text}
+---
+"""
 
         messages = [{"role": "system", "content": system_prompt}] + history
 
@@ -110,8 +148,8 @@ def api_ask(request):
                 stream = client.chat.completions.create(
                     model=MyConfig.envFile()["AZURE_OPENAI_DEPLOYMENT_NAME"],
                     messages=messages,
-                    max_tokens=150,
-                    temperature=0.7,
+                    max_tokens=200,  # Increased for more informative responses
+                    temperature=0.6,  # Lowered for more factual, consistent responses
                     stream=True
                 )
 
@@ -189,66 +227,3 @@ def api_tts(request):
 
     except Exception as e:
         return JsonResponse({"error": f"TTS error: {str(e)}"}, status=500)
-
-
-@csrf_exempt
-def generate_avatar_audio(request):
-    if request.method != "POST":
-        return JsonResponse({"error": "POST required"}, status=405)
-
-    try:
-        payload = json.loads(request.body)
-        text = (payload.get("text") or "").strip()
-        if not text:
-            return JsonResponse({"error": "Empty text"}, status=400)
-
-        # STEP 1: TTS
-        synthesizer = get_speech_synthesizer()
-        is_hindi = _contains_devanagari(text)
-        voice_name = "hi-IN-SwaraNeural" if is_hindi else "en-IN-NeerjaNeural"
-        lang = "hi-IN" if is_hindi else "en-IN"
-
-        ssml = f"""<speak version='1.0' xml:lang='{lang}'>
-            <voice name='{voice_name}'>
-                <prosody rate='1.1' pitch='0%'>{text}</prosody>
-            </voice>
-        </speak>"""
-
-        result = synthesizer.speak_ssml_async(ssml).get()
-        if result.reason != speechsdk.ResultReason.SynthesizingAudioCompleted:
-            return JsonResponse({"error": "TTS failed"}, status=500)
-
-        import uuid
-        import os
-
-        # STEP 2: save audio file
-        file_id = uuid.uuid4().hex
-        audio_path = f"media/avatar/{file_id}.wav"
-        phoneme_path = f"media/avatar/{file_id}.json"
-
-        os.makedirs("media/avatar", exist_ok=True)
-
-        with open(audio_path, "wb") as f:
-            f.write(result.audio_data)
-
-        print(">>> PHONETIC MODE ACTIVE <<<")
-
-
-        # STEP 3: Run Rhubarb Lip Sync
-        import subprocess
-        subprocess.run([
-            "rhubarb",
-            audio_path,
-            "--machineReadable",
-            "--recognizer", "phonetic",
-            "-o", phoneme_path
-        ])
-
-        return JsonResponse({
-            "text": text,
-            "audio_url": "/" + audio_path,
-            "phoneme_url": "/" + phoneme_path
-        })
-
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
