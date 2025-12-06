@@ -13,7 +13,7 @@
 
         <!-- Mouth Layer -->
         <img id="mouth"
-             src="/static/avatar/mouth/rest.png"
+             src="/static/mouth/rest.png"
              style="position:absolute; bottom:65px; left:110px; width:95px;">
     </div>
 
@@ -51,9 +51,9 @@
                     // mouth name like "A", "E", "rest"
                     const mouthShape = phonemes[i].mouth;
 
-                    // change to mouth PNG
+                    // change to mouth PNG - FIXED PATH
                     document.getElementById("mouth").src =
-                        `/static/avatar/mouth/${mouthShape}.png`;
+                        `/static/mouth/${mouthShape}.png`;
                 }
             }
 
