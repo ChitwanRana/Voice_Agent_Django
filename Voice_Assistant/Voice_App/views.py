@@ -81,13 +81,23 @@ def api_ask(request):
         else:
             selected_domain = request.session.get("selected_domain", "normal")
 
+        # Enhanced chat history management
         history = request.session.get("chat_history", [])
         history.append({"role": "user", "content": user_text})
-        if len(history) > 6:
-            history = history[-6:]
+        
+        # Keep last 10 messages (5 exchanges) for better context
+        if len(history) > 10:
+            history = history[-10:]
 
-        # Improved system prompt for informative, knowledge-focused responses
+        # Improved system prompt with memory awareness
         base_personality = """You are Bodhita AI, an expert voice assistant specializing in providing accurate, informative answers.
+
+MEMORY & CONTEXT:
+- You have access to the conversation history
+- Reference previous questions/answers when relevant
+- Use phrases like "Jaise maine pehle bataya tha..." or "Aapne jo pehle pucha tha uske baare mein..."
+- Connect current questions to past context naturally
+- If user asks follow-up questions, understand the context from history
 
 RESPONSE STYLE:
 - Always respond in HINGLISH (Hindi-English mix using Roman script ONLY)
@@ -104,21 +114,30 @@ LANGUAGE FORMAT:
 - Natural code-mixing between Hindi and English
 
 INFORMATION PRIORITY:
-1. Provide accurate, factual information first
-2. Explain the "what" and "why" clearly
-3. Add practical tips or implications if relevant
-4. Keep it conversational for voice interaction
+1. Check conversation history for context
+2. Provide accurate, factual information
+3. Explain the "what" and "why" clearly
+4. Add practical tips or implications if relevant
+5. Keep it conversational for voice interaction
 
-EXAMPLES:
+EXAMPLES WITH MEMORY:
 
-User: "What is high blood pressure?"
-You: "High blood pressure ya hypertension ek condition hai jisme aapki arteries mein blood ka pressure consistently 140/90 mmHg se zyada rehta hai. Isse heart attack, stroke aur kidney problems ka risk badh jata hai, isliye regular monitoring aur healthy lifestyle bahut zaroori hai."
+Conversation 1:
+User: "What is diabetes?"
+You: "Diabetes ek metabolic disorder hai jisme aapke blood sugar level abnormally high ho jata hai. Ye insulin production ya insulin resistance ki wajah se hota hai, aur agar control na kiya jaye toh serious complications ho sakti hain."
 
-User: "How do credit cards work?"
-You: "Credit card ek short-term loan hai jo bank aapko deta hai. Aap items purchase karte hain aur bank vendor ko pay karta hai, phir aapko wo amount interest-free period mein wapas karna hota hai. Agar time pe payment nahi hui toh 24-42% annual interest charge hota hai."
+User: "What are its symptoms?"
+You: "Diabetes ke main symptoms hain - excessive thirst aur frequent urination, unexplained weight loss, fatigue, aur blurred vision. Wounds bhi slowly heal hote hain. Agar ye symptoms dikhein toh turant doctor se consult karein."
 
-User: "What are symptoms of diabetes?"
-You: "Diabetes ke main symptoms hain - excessive thirst aur hunger, frequent urination, unexplained weight loss, aur fatigue. Wounds slowly heal hote hain aur vision bhi blurry ho sakti hai. Agar ye symptoms dikhein toh immediately doctor se consult karein."
+User: "How to control it?"
+You: "Diabetes ko control karne ke liye balanced diet lein jisme low sugar aur high fiber ho, regular exercise karein minimum 30 minutes daily, aur doctor ki prescribed medicines time pe lein. Regular blood sugar monitoring bhi bahut important hai."
+
+Conversation 2:
+User: "Tell me about loans"
+You: "Loan ek borrowed money hai jo aap bank ya financial institution se lete hain aur fixed tenure mein interest ke saath repay karte hain. Home loan, personal loan, car loan jaise different types available hain, aur interest rates 8-15% tak hote hain."
+
+User: "Which one is best?"
+You: "Ye aapki requirement pe depend karta hai. Home loan sabse low interest rate pe milta hai around 8-9%, aur tax benefits bhi hain. Personal loan quickly mil jata hai but interest high hota hai 12-15%. Apni priority aur repayment capacity dekh ke decide karein."
 """
 
         if selected_domain == "normal":
@@ -130,7 +149,8 @@ You: "Diabetes ke main symptoms hain - excessive thirst aur hunger, frequent uri
 KNOWLEDGE BASE INSTRUCTIONS:
 - You are now in {selected_domain.upper()} domain mode
 - Use ONLY the information from the knowledge base provided below
-- If asked something not in the knowledge base, politely say "Ye information mere knowledge base mein available nahi hai"
+- Reference conversation history for context but answer from knowledge base
+- If asked something not in the knowledge base, politely say "Ye specific information mere knowledge base mein available nahi hai, lekin jo aapne pehle pucha tha uske baare mein main bata sakta hoon"
 - Cite specific facts, numbers, and details from the knowledge base
 - Be authoritative and accurate based on the provided information
 
@@ -148,8 +168,8 @@ KNOWLEDGE BASE INSTRUCTIONS:
                 stream = client.chat.completions.create(
                     model=MyConfig.envFile()["AZURE_OPENAI_DEPLOYMENT_NAME"],
                     messages=messages,
-                    max_tokens=200,  # Increased for more informative responses
-                    temperature=0.6,  # Lowered for more factual, consistent responses
+                    max_tokens=200,  # Increased for more detailed contextual responses
+                    temperature=0.7,  # Slightly higher for more natural conversational flow
                     stream=True
                 )
 
@@ -171,8 +191,12 @@ KNOWLEDGE BASE INSTRUCTIONS:
                     history.append({"role": "assistant", "content": full_response})
                     request.session["chat_history"] = history
                     request.session.modified = True
+                    
+                    # Log conversation for debugging
+                    logger.info(f"Chat history length: {len(history)} messages")
 
             except Exception as e:
+                logger.error(f"Stream error: {str(e)}")
                 yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
         return StreamingHttpResponse(
@@ -182,15 +206,33 @@ KNOWLEDGE BASE INSTRUCTIONS:
         )
 
     except Exception as e:
+        logger.error(f"API ask error: {str(e)}")
         return JsonResponse({"error": str(e)}, status=500)
 
 @csrf_exempt
 def reset_context(request):
     if request.method != "POST":
         return JsonResponse({"error": "POST required."}, status=405)
+    
+    # Clear chat history
     request.session["chat_history"] = []
     request.session.modified = True
-    return JsonResponse({"status": "context reset"})
+    
+    logger.info("Chat history reset")
+    return JsonResponse({"status": "context reset", "message": "Conversation history cleared"})
+
+@csrf_exempt
+def get_chat_history(request):
+    """New endpoint to retrieve current chat history"""
+    if request.method != "GET":
+        return JsonResponse({"error": "GET required"}, status=405)
+    
+    history = request.session.get("chat_history", [])
+    return JsonResponse({
+        "history": history,
+        "count": len(history),
+        "domain": request.session.get("selected_domain", "normal")
+    })
 
 @csrf_exempt
 def api_tts(request):
@@ -221,9 +263,11 @@ def api_tts(request):
             return JsonResponse({"audio": audio_base64, "format": "wav"})
         elif result.reason == speechsdk.ResultReason.Canceled:
             cancellation = result.cancellation_details
+            logger.error(f"TTS canceled: {cancellation.reason}")
             return JsonResponse({"error": f"Synthesis canceled: {cancellation.reason}"}, status=500)
         else:
             return JsonResponse({"error": "Synthesis failed"}, status=500)
 
     except Exception as e:
+        logger.error(f"TTS error: {str(e)}")
         return JsonResponse({"error": f"TTS error: {str(e)}"}, status=500)
