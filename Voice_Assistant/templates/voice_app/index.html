@@ -287,7 +287,7 @@ async function sendTextToServer(text) {
 
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
-  let full = '', aiDiv = null;
+  let fullResponse = '', aiDiv = null;
 
   while (true) {
     const { value, done } = await reader.read();
@@ -296,21 +296,32 @@ async function sendTextToServer(text) {
     const parts = decoder.decode(value).split(/\r?\n\r?\n/).filter(Boolean);
     for (const p of parts) {
       try {
-        const obj = JSON.parse(p.replace(/^data:\s*/, ''));
+        const jsonStr = p.replace(/^data:\s*/, '');
+        if (!jsonStr) continue;
+
+        const obj = JSON.parse(jsonStr);
         if (obj.chunk) {
           if (!aiDiv) {
             addMessage('ai', '...');
             aiDiv = chatContainer.lastElementChild.querySelector('.message-bubble');
           }
-          full += obj.chunk;
-          aiDiv.textContent = full;
+          fullResponse += obj.chunk;
+          aiDiv.textContent = fullResponse;
+        } else if (obj.done) {
+          console.log("Finished receiving stream from server.");
+          // Use the full response from the 'done' message if available
+          if (obj.full_response) {
+              fullResponse = obj.full_response;
+          }
+        } else if (obj.error) {
+          throw new Error(`Stream error from server: ${obj.error}`);
         }
       } catch (err) {}
     }
   }
 
-  if (full) {
-    speakText(full);
+  if (fullResponse) {
+    speakText(fullResponse);
   }
 
   updateStatus('idle', 'Ready');
