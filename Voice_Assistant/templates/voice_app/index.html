@@ -232,30 +232,53 @@ function stopTalking() {
 let currentAudio = null;
 
 async function speakText(text) {
-  if (currentAudio) currentAudio.pause();
-
-  const res = await fetch('/api/tts/', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
-    body: JSON.stringify({ text })
-  });
-
-  const data = await res.json();
-  if (!data.audio) return;
-
-  const blob = base64ToBlob(data.audio, 'audio/wav');
-  const url = URL.createObjectURL(blob);
-
-  currentAudio = new Audio(url);
-  currentAudio.onplay = () => startTalking();
-  currentAudio.onended = () => {
-    stopTalking();
-    URL.revokeObjectURL(url);
+  if (currentAudio) {
+    currentAudio.pause();
     currentAudio = null;
-  };
+  }
 
-  currentAudio.playbackRate = 1.1;
-  currentAudio.play();
+  try {
+    const res = await fetch('/api/tts/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+      body: JSON.stringify({ text })
+    });
+
+    const data = await res.json();
+    if (!data.audio) return;
+
+    // Handle MP3 format (changed from WAV)
+    const mimeType = data.format === 'mp3' ? 'audio/mpeg' : 'audio/wav';
+    const blob = base64ToBlob(data.audio, mimeType);
+    const url = URL.createObjectURL(blob);
+
+    currentAudio = new Audio(url);
+    currentAudio.preload = 'auto'; // Preload for faster playback
+    
+    currentAudio.onloadeddata = () => {
+      // Start playing as soon as data is loaded
+      currentAudio.play().catch(err => console.error('Playback error:', err));
+    };
+    
+    currentAudio.onplay = () => startTalking();
+    currentAudio.onended = () => {
+      stopTalking();
+      URL.revokeObjectURL(url);
+      currentAudio = null;
+    };
+    currentAudio.onerror = (err) => {
+      console.error('Audio error:', err);
+      stopTalking();
+      URL.revokeObjectURL(url);
+      currentAudio = null;
+    };
+
+    // Slightly faster playback for quicker response
+    currentAudio.playbackRate = 1.0;
+  } catch (err) {
+    console.error('TTS error:', err);
+    stopTalking();
+  }
 }
 
 /* Helpers */
@@ -279,52 +302,58 @@ function getCookie(name) {
 async function sendTextToServer(text) {
   updateStatus('processing', 'AI thinking...');
 
-  const res = await fetch("{% url 'api_ask' %}", {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text, domain: selectedDomain })
-  });
+  try {
+    const res = await fetch("{% url 'api_ask' %}", {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, domain: selectedDomain })
+    });
 
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let fullResponse = '', aiDiv = null;
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let fullResponse = '', aiDiv = null;
 
-    const parts = decoder.decode(value).split(/\r?\n\r?\n/).filter(Boolean);
-    for (const p of parts) {
-      try {
-        const jsonStr = p.replace(/^data:\s*/, '');
-        if (!jsonStr) continue;
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
 
-        const obj = JSON.parse(jsonStr);
-        if (obj.chunk) {
-          if (!aiDiv) {
-            addMessage('ai', '...');
-            aiDiv = chatContainer.lastElementChild.querySelector('.message-bubble');
+      const parts = decoder.decode(value).split(/\r?\n\r?\n/).filter(Boolean);
+      for (const p of parts) {
+        try {
+          const jsonStr = p.replace(/^data:\s*/, '');
+          if (!jsonStr) continue;
+
+          const obj = JSON.parse(jsonStr);
+          if (obj.chunk) {
+            if (!aiDiv) {
+              addMessage('ai', '...');
+              aiDiv = chatContainer.lastElementChild.querySelector('.message-bubble');
+            }
+            fullResponse += obj.chunk;
+            aiDiv.textContent = fullResponse;
+          } else if (obj.done) {
+            console.log("Finished receiving stream from server.");
+          } else if (obj.error) {
+            throw new Error(`Stream error: ${obj.error}`);
           }
-          fullResponse += obj.chunk;
-          aiDiv.textContent = fullResponse;
-        } else if (obj.done) {
-          console.log("Finished receiving stream from server.");
-          // Use the full response from the 'done' message if available
-          if (obj.full_response) {
-              fullResponse = obj.full_response;
-          }
-        } else if (obj.error) {
-          throw new Error(`Stream error from server: ${obj.error}`);
+        } catch (err) {
+          console.error('Parse error:', err);
         }
-      } catch (err) {}
+      }
     }
-  }
 
-  if (fullResponse) {
-    speakText(fullResponse);
+    if (fullResponse) {
+      updateStatus('speaking', 'AI speaking...');
+      await speakText(fullResponse);
+    }
+  } catch (err) {
+    console.error('Request error:', err);
+    addMessage('ai', '❌ Error: Unable to process request.');
+  } finally {
+    updateStatus('idle', 'Ready');
   }
-
-  updateStatus('idle', 'Ready');
 }
 
 /* Speech Recognition */

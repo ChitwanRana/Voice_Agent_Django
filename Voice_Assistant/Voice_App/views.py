@@ -42,6 +42,10 @@ def get_speech_synthesizer():
             region=config["SPEECH_REGION"]
         )
         speech_config.speech_synthesis_voice_name = "hi-IN-SwaraNeural"
+        # Use mp3 format for faster transfer and smaller payload
+        speech_config.set_speech_synthesis_output_format(
+            speechsdk.SpeechSynthesisOutputFormat.Audio24Khz48KBitRateMonoMp3
+        )
         _speech_synthesizer = speechsdk.SpeechSynthesizer(
             speech_config=speech_config,
             audio_config=None
@@ -201,9 +205,8 @@ def get_chat_history(request):
 
 @csrf_exempt
 def api_tts(request):
-    """Handles text-to-speech conversion using Azure Speech Service."""
+    """Handles text-to-speech conversion using Azure Speech Service with caching."""
     if request.method != "POST":
-        logger.warning(f"Received {request.method} request for api_tts, but only POST is allowed.")
         return JsonResponse({"error": "POST required"}, status=405)
 
     try:
@@ -214,29 +217,35 @@ def api_tts(request):
         if len(text) > 5000:
             return JsonResponse({"error": "Text too long for synthesis. Maximum 5000 characters."}, status=400)
 
-        ssml = f"""<speak version='1.0' xml:lang='hi-IN'>
-            <voice name='hi-IN-SwaraNeural'>
-                <prosody rate='1.1' pitch='0%'>{html.escape(text, quote=False)}</prosody>
-            </voice>
-        </speak>"""
+        # Check cache first for faster repeated responses
+        cache_key = f"tts_{hash(text)}"
+        if cached_audio := cache.get(cache_key):
+            return JsonResponse(cached_audio)
+
+        # Optimized SSML with faster speech rate for quicker playback
+        ssml = f"""<speak version='1.0' xml:lang='hi-IN'><voice name='hi-IN-SwaraNeural'><prosody rate='1.2'>{html.escape(text, quote=False)}</prosody></voice></speak>"""
 
         result = get_speech_synthesizer().speak_ssml_async(ssml).get()
 
         if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
             if not result.audio_data:
                 return JsonResponse({"error": "No audio data generated"}, status=500)
-            return JsonResponse({
+            
+            response_data = {
                 "audio": base64.b64encode(result.audio_data).decode('utf-8'),
-                "format": "wav"
-            })
+                "format": "mp3"
+            }
+            
+            # Cache the audio response for 1 hour
+            cache.set(cache_key, response_data, timeout=3600)
+            return JsonResponse(response_data)
         
         error_msg = f"Reason: {result.cancellation_details.reason}, Details: {result.cancellation_details.error_details}"
         logger.error(f"TTS failed: {error_msg}")
         return JsonResponse({"error": "Speech synthesis failed", "details": error_msg}, status=500)
 
-    except json.JSONDecodeError as e:
-        logger.error(f"Invalid JSON in TTS request body: {e}")
+    except json.JSONDecodeError:
         return JsonResponse({"error": "Invalid JSON"}, status=400)
     except Exception as e:
-        logger.error(f"Unexpected error in api_tts view: {e}", exc_info=True)
+        logger.error(f"TTS error: {e}", exc_info=True)
         return JsonResponse({"error": "Internal server error"}, status=500)
