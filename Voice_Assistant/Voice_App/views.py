@@ -9,6 +9,7 @@ from openai import AzureOpenAI                              #type: ignore
 from django.core.cache import cache                         #type: ignore
 from src.config.config import MyConfig
 from pathlib import Path
+import html  
 
 logger = logging.getLogger("voice_app")
 
@@ -250,23 +251,30 @@ def api_tts(request):
         logger.info(f"Requesting TTS for text: '{text[:50]}...'")
         synthesizer = get_speech_synthesizer()
         
+        # Escape XML special characters to prevent SSML errors
+        escaped_text = html.escape(text, quote=False)
+        
         ssml = f"""<speak version='1.0' xml:lang='hi-IN'>
             <voice name='hi-IN-SwaraNeural'>
-                <prosody rate='1.1' pitch='0%'>{text}</prosody>
+                <prosody rate='1.1' pitch='0%'>{escaped_text}</prosody>
             </voice>
         </speak>"""
 
+        logger.debug(f"Generated SSML: {ssml[:200]}...")
         result = synthesizer.speak_ssml_async(ssml).get()
 
         if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
             audio_base64 = base64.b64encode(result.audio_data).decode('utf-8')
-            logger.info("Successfully synthesized audio.")
+            logger.info(f"Successfully synthesized audio. Size: {len(result.audio_data)} bytes")
             return JsonResponse({"audio": audio_base64, "format": "wav"})
         
         cancellation = result.cancellation_details
         logger.error(f"TTS synthesis failed. Reason: {cancellation.reason}. Details: {cancellation.error_details}")
         return JsonResponse({"error": f"Synthesis failed: {cancellation.reason}"}, status=500)
 
+    except json.JSONDecodeError as e:
+        logger.error(f"Invalid JSON in TTS request body: {e}")
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
     except Exception as e:
         logger.error(f"Unexpected error in api_tts view: {e}", exc_info=True)
         return JsonResponse({"error": f"TTS error: {str(e)}"}, status=500)
