@@ -167,7 +167,6 @@
     <div class="controls">
       <div class="button-group">
         <button id="startBtn" class="btn">🎤 Start</button>
-        <button id="stopBtn" class="btn" disabled>⏹️ Stop</button>
         <button id="clearBtn" class="btn">🗑️ Clear</button>
         <button id="resetBtn" class="btn">♻️ Reset</button>
       </div>
@@ -179,7 +178,6 @@
 <script>
 /* Buttons + UI */
 const startBtn = document.getElementById('startBtn');
-const stopBtn = document.getElementById('stopBtn');
 const clearBtn = document.getElementById('clearBtn');
 const resetBtn = document.getElementById('resetBtn');
 const statusIndicator = document.getElementById('statusIndicator');
@@ -364,7 +362,6 @@ recognition.lang = 'en-US';
 recognition.onstart = () => {
   updateStatus('listening', 'Listening...');
   startBtn.disabled = true;
-  stopBtn.disabled = false;
 };
 
 recognition.onresult = (e) => {
@@ -376,11 +373,9 @@ recognition.onresult = (e) => {
 recognition.onend = () => {
   updateStatus('idle', 'Ready');
   startBtn.disabled = false;
-  stopBtn.disabled = true;
 };
 
 startBtn.addEventListener('click', () => recognition.start());
-stopBtn.addEventListener('click', () => recognition.stop());
 clearBtn.addEventListener('click', () => chatContainer.innerHTML = '');
 resetBtn.addEventListener('click', async () => {
   await fetch("{% url 'reset_context' %}", { method:'POST' });
