@@ -129,7 +129,7 @@ YOUR TASK:
         if selected_domain != "normal":
             if not (kb_text := load_kb(selected_domain)):
                 return JsonResponse({"error": f"Knowledge base for {selected_domain} is not available"}, status=503)
-            system_prompt += f"""\n\nKNOWLEDGE BASE INSTRUCTIONS:\n- You are in {selected_domain.upper()} mode.\n- You MUST answer ONLY using the Knowledge Base below.\n- If the answer is not in the knowledge base, state that clearly, e.g., "Yeh jaankari mere knowledge base mein nahi hai."\n- Refer to the conversation history for context, but derive your answer from the knowledge base.\n\n--- {selected_domain.upper()} KNOWLEDGE BASE ---\n{kb_text}\n---\n"""
+            system_prompt += f"""\n\nKNOWLEDGE BASE INSTRUCTIONS:\n- You are in {selected_domain.upper()} mode.\n- You MUST answer ONLY using the Knowledge Base below.\n- If the answer is not in the knowledge base, state that clearly, e.g., "Yeh jaankari mere pass nahi hai."\n- Refer to the conversation history for context, but derive your answer from the knowledge base.\n\n--- {selected_domain.upper()} KNOWLEDGE BASE ---\n{kb_text}\n---\n"""
 
         messages = [{"role": "system", "content": system_prompt}] + history
 
