@@ -226,14 +226,17 @@ function stopTalking() {
   }
 }
 
-/* ============= TTS (AI SPEAKING) ============= */
+/* ============= TTS (AI SPEAKING) WITH STREAMING ============= */
 let currentAudio = null;
+let isPlaying = false;
 
 async function speakText(text) {
   if (currentAudio) {
     currentAudio.pause();
     currentAudio = null;
   }
+
+  isPlaying = false;
 
   try {
     const res = await fetch('/api/tts/', {
@@ -242,41 +245,128 @@ async function speakText(text) {
       body: JSON.stringify({ text })
     });
 
-    const data = await res.json();
-    if (!data.audio) return;
-
-    // Handle MP3 format (changed from WAV)
-    const mimeType = data.format === 'mp3' ? 'audio/mpeg' : 'audio/wav';
-    const blob = base64ToBlob(data.audio, mimeType);
-    const url = URL.createObjectURL(blob);
-
-    currentAudio = new Audio(url);
-    currentAudio.preload = 'auto'; // Preload for faster playback
-    
-    currentAudio.onloadeddata = () => {
-      // Start playing as soon as data is loaded
-      currentAudio.play().catch(err => console.error('Playback error:', err));
-    };
-    
-    currentAudio.onplay = () => startTalking();
-    currentAudio.onended = () => {
+    if (!res.ok) {
+      console.error(`TTS HTTP error: ${res.status}`);
       stopTalking();
-      URL.revokeObjectURL(url);
-      currentAudio = null;
-    };
-    currentAudio.onerror = (err) => {
-      console.error('Audio error:', err);
-      stopTalking();
-      URL.revokeObjectURL(url);
-      currentAudio = null;
-    };
+      return;
+    }
 
-    // Slightly faster playback for quicker response
-    currentAudio.playbackRate = 1.0;
+    // Check if response is streaming (SSE)
+    const contentType = res.headers.get('content-type');
+    if (contentType && contentType.includes('text/event-stream')) {
+      await handleStreamingAudio(res);
+    } else {
+      // Fallback to non-streaming (cached response)
+      const data = await res.json();
+      await handleCompleteAudio(data);
+    }
   } catch (err) {
     console.error('TTS error:', err);
     stopTalking();
   }
+}
+
+async function handleCompleteAudio(data) {
+  if (!data.audio) return;
+
+  const mimeType = data.format === 'mp3' ? 'audio/mpeg' : 'audio/wav';
+  const blob = base64ToBlob(data.audio, mimeType);
+  const url = URL.createObjectURL(blob);
+
+  currentAudio = new Audio(url);
+  currentAudio.preload = 'auto';
+  
+  currentAudio.onloadeddata = () => {
+    currentAudio.play().catch(err => console.error('Playback error:', err));
+  };
+  
+  currentAudio.onplay = () => startTalking();
+  currentAudio.onended = () => {
+    stopTalking();
+    URL.revokeObjectURL(url);
+    currentAudio = null;
+  };
+  currentAudio.onerror = (err) => {
+    console.error('Audio error:', err);
+    stopTalking();
+    URL.revokeObjectURL(url);
+    currentAudio = null;
+  };
+
+  currentAudio.playbackRate = 1.0;
+}
+
+async function handleStreamingAudio(response) {
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  const audioChunks = [];
+  let started = false;
+  
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+
+    const text = decoder.decode(value);
+    const lines = text.split(/\r?\n\r?\n/).filter(Boolean);
+    
+    for (const line of lines) {
+      try {
+        const jsonStr = line.replace(/^data:\s*/, '').trim();
+        if (!jsonStr) continue;
+
+        const obj = JSON.parse(jsonStr);
+        
+        if (obj.chunk) {
+          // Collect chunks
+          audioChunks.push(obj.chunk);
+          
+          // Start playing after collecting enough chunks for smooth playback
+          if (!started && audioChunks.length >= 3) {
+            started = true;
+            playStreamedAudio(audioChunks);
+          }
+        } else if (obj.done) {
+          // If we haven't started playing yet, play now with all chunks
+          if (!started && audioChunks.length > 0) {
+            playStreamedAudio(audioChunks);
+          }
+        }
+      } catch (err) {
+        console.error('Parse error:', err, line);
+      }
+    }
+  }
+}
+
+function playStreamedAudio(chunks) {
+  // Combine all base64 chunks
+  const fullBase64 = chunks.join('');
+  const blob = base64ToBlob(fullBase64, 'audio/mpeg');
+  const url = URL.createObjectURL(blob);
+
+  currentAudio = new Audio(url);
+  currentAudio.preload = 'auto';
+  
+  currentAudio.onloadeddata = () => {
+    currentAudio.play().catch(err => console.error('Playback error:', err));
+  };
+  
+  currentAudio.onplay = () => startTalking();
+  currentAudio.onended = () => {
+    stopTalking();
+    URL.revokeObjectURL(url);
+    currentAudio = null;
+    isPlaying = false;
+  };
+  currentAudio.onerror = (err) => {
+    console.error('Audio error:', err);
+    stopTalking();
+    URL.revokeObjectURL(url);
+    currentAudio = null;
+    isPlaying = false;
+  };
+
+  currentAudio.playbackRate = 1.0;
 }
 
 /* Helpers */

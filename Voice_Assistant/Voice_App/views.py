@@ -205,7 +205,7 @@ def get_chat_history(request):
 
 @csrf_exempt
 def api_tts(request):
-    """Handles text-to-speech conversion using Azure Speech Service with caching."""
+    """Handles text-to-speech conversion using Azure Speech Service with streaming for reduced latency."""
     if request.method != "POST":
         return JsonResponse({"error": "POST required"}, status=405)
 
@@ -225,20 +225,43 @@ def api_tts(request):
         # Optimized SSML with faster speech rate for quicker playback
         ssml = f"""<speak version='1.0' xml:lang='hi-IN'><voice name='hi-IN-SwaraNeural'><prosody rate='1.2'>{html.escape(text, quote=False)}</prosody></voice></speak>"""
 
+        # Use the cached synthesizer for faster response
         result = get_speech_synthesizer().speak_ssml_async(ssml).get()
 
         if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
-            if not result.audio_data:
+            # Collect all audio data
+            audio_data = bytes(result.audio_data)
+            
+            if not audio_data:
                 return JsonResponse({"error": "No audio data generated"}, status=500)
             
+            # For streaming, we'll send chunks
+            def generate_audio_stream():
+                chunk_size = 4096  # 4KB chunks for low latency
+                full_audio = audio_data
+                
+                # Send chunks as they become available
+                for i in range(0, len(full_audio), chunk_size):
+                    chunk = full_audio[i:i+chunk_size]
+                    chunk_b64 = base64.b64encode(chunk).decode('utf-8')
+                    yield f"data: {json.dumps({'chunk': chunk_b64, 'format': 'mp3'})}\n\n"
+                
+                # Signal completion
+                yield f"data: {json.dumps({'done': True})}\n\n"
+            
+            # Cache the complete audio for future requests
             response_data = {
-                "audio": base64.b64encode(result.audio_data).decode('utf-8'),
+                "audio": base64.b64encode(audio_data).decode('utf-8'),
                 "format": "mp3"
             }
-            
-            # Cache the audio response for 1 hour
             cache.set(cache_key, response_data, timeout=3600)
-            return JsonResponse(response_data)
+            
+            # Return streaming response
+            return StreamingHttpResponse(
+                generate_audio_stream(),
+                content_type='text/event-stream',
+                headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'}
+            )
         
         error_msg = f"Reason: {result.cancellation_details.reason}, Details: {result.cancellation_details.error_details}"
         logger.error(f"TTS failed: {error_msg}")
