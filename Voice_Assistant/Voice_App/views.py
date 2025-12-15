@@ -205,7 +205,7 @@ def get_chat_history(request):
 
 @csrf_exempt
 def api_tts(request):
-    """Handles text-to-speech conversion using Azure Speech Service with streaming for reduced latency."""
+    """Handles text-to-speech conversion using Azure Speech Service."""
     if request.method != "POST":
         return JsonResponse({"error": "POST required"}, status=405)
 
@@ -235,33 +235,16 @@ def api_tts(request):
             if not audio_data:
                 return JsonResponse({"error": "No audio data generated"}, status=500)
             
-            # For streaming, we'll send chunks
-            def generate_audio_stream():
-                chunk_size = 4096  # 4KB chunks for low latency
-                full_audio = audio_data
-                
-                # Send chunks as they become available
-                for i in range(0, len(full_audio), chunk_size):
-                    chunk = full_audio[i:i+chunk_size]
-                    chunk_b64 = base64.b64encode(chunk).decode('utf-8')
-                    yield f"data: {json.dumps({'chunk': chunk_b64, 'format': 'mp3'})}\n\n"
-                
-                # Signal completion
-                yield f"data: {json.dumps({'done': True})}\n\n"
-            
-            # Cache the complete audio for future requests
+            # Return direct JSON response with base64 encoded audio
             response_data = {
                 "audio": base64.b64encode(audio_data).decode('utf-8'),
                 "format": "mp3"
             }
+            
+            # Cache the complete audio for future requests
             cache.set(cache_key, response_data, timeout=3600)
             
-            # Return streaming response
-            return StreamingHttpResponse(
-                generate_audio_stream(),
-                content_type='text/event-stream',
-                headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'}
-            )
+            return JsonResponse(response_data)
         
         error_msg = f"Reason: {result.cancellation_details.reason}, Details: {result.cancellation_details.error_details}"
         logger.error(f"TTS failed: {error_msg}")

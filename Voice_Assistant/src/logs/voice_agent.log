@@ -157,3 +157,20 @@ X-ConnectionId: 7eb5d95b54cd487bbc745b9fe78cab3d SessionId: 7eb5d95b54cd487bbc74
 2025-12-15 17:23:14,234 - INFO - Listening for user input...
 2025-12-15 17:23:19,629 - INFO - Keyboard interrupt received - exiting gracefully
 2025-12-15 17:23:19,630 - INFO - Voice agent stopped
+2025-12-16 00:06:57,955 - INFO - Checking Azure Speech Service configuration...
+2025-12-16 00:06:57,956 - INFO - Region: eastus2
+2025-12-16 00:06:57,956 - INFO - Key present: Yes
+2025-12-16 00:06:57,956 - INFO - Key length: 84
+2025-12-16 00:06:57,957 - INFO - Voice set to: hi-IN-SwaraNeural
+2025-12-16 00:06:58,022 - INFO - Azure OpenAI deployment: gpt-4o-mini
+2025-12-16 00:06:58,035 - INFO - Voice agent started
+2025-12-16 00:06:58,035 - INFO - Listening for user input...
+2025-12-16 00:07:01,479 - INFO - User input recognized: हैलो।
+2025-12-16 00:07:01,479 - INFO - Requesting AI response...
+2025-12-16 00:07:03,271 - INFO - HTTP Request: POST https://ai-mukeshcd11007490ai050748139374.openai.azure.com/openai/deployments/gpt-4o-mini/chat/completions?api-version=2024-12-01-preview "HTTP/1.1 200 OK"
+2025-12-16 00:07:03,288 - INFO - AI response: हैलो! कैसे हैं आप?
+2025-12-16 00:07:03,288 - INFO - Starting speech synthesis...
+2025-12-16 00:07:08,493 - INFO - Speech synthesis completed successfully
+2025-12-16 00:07:08,493 - INFO - Listening for user input...
+2025-12-16 00:07:14,051 - INFO - Keyboard interrupt received - exiting gracefully
+2025-12-16 00:07:14,052 - INFO - Voice agent stopped
