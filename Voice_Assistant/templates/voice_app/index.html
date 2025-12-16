@@ -226,7 +226,7 @@ function stopTalking() {
   }
 }
 
-/* ============= TTS (AI SPEAKING) ============= */
+/* ============= TTS (AI SPEAKING) WITH STREAMING ============= */
 let currentAudio = null;
 
 async function speakText(text) {
@@ -242,37 +242,73 @@ async function speakText(text) {
       body: JSON.stringify({ text })
     });
 
-    const data = await res.json();
-    if (!data.audio) return;
+    if (!res.ok) {
+      throw new Error(`TTS request failed: ${res.status}`);
+    }
 
-    // Handle MP3 format (changed from WAV)
-    const mimeType = data.format === 'mp3' ? 'audio/mpeg' : 'audio/wav';
-    const blob = base64ToBlob(data.audio, mimeType);
-    const url = URL.createObjectURL(blob);
+    // Check if response is streaming audio
+    const contentType = res.headers.get('content-type');
+    if (contentType && contentType.includes('audio/mpeg')) {
+      // Stream audio directly - starts playing faster!
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
 
-    currentAudio = new Audio(url);
-    currentAudio.preload = 'auto'; // Preload for faster playback
-    
-    currentAudio.onloadeddata = () => {
-      // Start playing as soon as data is loaded
-      currentAudio.play().catch(err => console.error('Playback error:', err));
-    };
-    
-    currentAudio.onplay = () => startTalking();
-    currentAudio.onended = () => {
-      stopTalking();
-      URL.revokeObjectURL(url);
-      currentAudio = null;
-    };
-    currentAudio.onerror = (err) => {
-      console.error('Audio error:', err);
-      stopTalking();
-      URL.revokeObjectURL(url);
-      currentAudio = null;
-    };
+      currentAudio = new Audio(url);
+      currentAudio.preload = 'auto';
+      
+      currentAudio.oncanplaythrough = () => {
+        // Start playing as soon as enough data is buffered
+        currentAudio.play().catch(err => console.error('Playback error:', err));
+      };
+      
+      currentAudio.onplay = () => startTalking();
+      currentAudio.onended = () => {
+        stopTalking();
+        URL.revokeObjectURL(url);
+        currentAudio = null;
+      };
+      currentAudio.onerror = (err) => {
+        console.error('Audio error:', err);
+        stopTalking();
+        URL.revokeObjectURL(url);
+        currentAudio = null;
+      };
 
-    // Slightly faster playback for quicker response
-    currentAudio.playbackRate = 1.0;
+      currentAudio.playbackRate = 1.0;
+    } else {
+      // Fallback for JSON response (backwards compatibility)
+      const data = await res.json();
+      if (data.error) {
+        throw new Error(data.error);
+      }
+      if (!data.audio) return;
+
+      const mimeType = data.format === 'mp3' ? 'audio/mpeg' : 'audio/wav';
+      const blob = base64ToBlob(data.audio, mimeType);
+      const url = URL.createObjectURL(blob);
+
+      currentAudio = new Audio(url);
+      currentAudio.preload = 'auto';
+      
+      currentAudio.onloadeddata = () => {
+        currentAudio.play().catch(err => console.error('Playback error:', err));
+      };
+      
+      currentAudio.onplay = () => startTalking();
+      currentAudio.onended = () => {
+        stopTalking();
+        URL.revokeObjectURL(url);
+        currentAudio = null;
+      };
+      currentAudio.onerror = (err) => {
+        console.error('Audio error:', err);
+        stopTalking();
+        URL.revokeObjectURL(url);
+        currentAudio = null;
+      };
+
+      currentAudio.playbackRate = 1.0;
+    }
   } catch (err) {
     console.error('TTS error:', err);
     stopTalking();
