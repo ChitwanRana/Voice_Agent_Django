@@ -226,13 +226,21 @@ function stopTalking() {
   }
 }
 
-/* ============= TTS (AI SPEAKING) WITH STREAMING ============= */
+/* ============= TTS (AI SPEAKING) WITH TRUE STREAMING ============= */
 let currentAudio = null;
+let mediaSource = null;
+let sourceBuffer = null;
 
 async function speakText(text) {
+  // Stop any currently playing audio
   if (currentAudio) {
     currentAudio.pause();
     currentAudio = null;
+  }
+  if (mediaSource) {
+    try { mediaSource.endOfStream(); } catch(e) {}
+    mediaSource = null;
+    sourceBuffer = null;
   }
 
   try {
@@ -246,72 +254,157 @@ async function speakText(text) {
       throw new Error(`TTS request failed: ${res.status}`);
     }
 
-    // Check if response is streaming audio
     const contentType = res.headers.get('content-type');
     if (contentType && contentType.includes('audio/mpeg')) {
-      // Stream audio directly - starts playing faster!
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-
-      currentAudio = new Audio(url);
-      currentAudio.preload = 'auto';
-      
-      currentAudio.oncanplaythrough = () => {
-        // Start playing as soon as enough data is buffered
-        currentAudio.play().catch(err => console.error('Playback error:', err));
-      };
-      
-      currentAudio.onplay = () => startTalking();
-      currentAudio.onended = () => {
-        stopTalking();
-        URL.revokeObjectURL(url);
-        currentAudio = null;
-      };
-      currentAudio.onerror = (err) => {
-        console.error('Audio error:', err);
-        stopTalking();
-        URL.revokeObjectURL(url);
-        currentAudio = null;
-      };
-
-      currentAudio.playbackRate = 1.0;
-    } else {
-      // Fallback for JSON response (backwards compatibility)
-      const data = await res.json();
-      if (data.error) {
-        throw new Error(data.error);
+      // Use MediaSource API for true streaming with immediate playback
+      if ('MediaSource' in window) {
+        await streamAudioWithMediaSource(res);
+      } else {
+        // Fallback for browsers without MediaSource support
+        await streamAudioFallback(res);
       }
-      if (!data.audio) return;
-
-      const mimeType = data.format === 'mp3' ? 'audio/mpeg' : 'audio/wav';
-      const blob = base64ToBlob(data.audio, mimeType);
-      const url = URL.createObjectURL(blob);
-
-      currentAudio = new Audio(url);
-      currentAudio.preload = 'auto';
-      
-      currentAudio.onloadeddata = () => {
-        currentAudio.play().catch(err => console.error('Playback error:', err));
-      };
-      
-      currentAudio.onplay = () => startTalking();
-      currentAudio.onended = () => {
-        stopTalking();
-        URL.revokeObjectURL(url);
-        currentAudio = null;
-      };
-      currentAudio.onerror = (err) => {
-        console.error('Audio error:', err);
-        stopTalking();
-        URL.revokeObjectURL(url);
-        currentAudio = null;
-      };
-
-      currentAudio.playbackRate = 1.0;
     }
   } catch (err) {
     console.error('TTS error:', err);
     stopTalking();
+  }
+}
+
+async function streamAudioWithMediaSource(response) {
+  mediaSource = new MediaSource();
+  const audioUrl = URL.createObjectURL(mediaSource);
+  
+  currentAudio = new Audio(audioUrl);
+  currentAudio.playbackRate = 1.0;
+  
+  let hasStartedPlaying = false;
+  let audioChunks = [];
+  let isAppending = false;
+
+  mediaSource.addEventListener('sourceopen', async () => {
+    try {
+      sourceBuffer = mediaSource.addSourceBuffer('audio/mpeg');
+      
+      sourceBuffer.addEventListener('updateend', () => {
+        isAppending = false;
+        
+        // Append next chunk if available
+        if (audioChunks.length > 0 && !sourceBuffer.updating) {
+          const chunk = audioChunks.shift();
+          isAppending = true;
+          sourceBuffer.appendBuffer(chunk);
+        }
+        
+        // Start playback as soon as we have enough data
+        if (!hasStartedPlaying && currentAudio.buffered.length > 0) {
+          hasStartedPlaying = true;
+          startTalking();
+          currentAudio.play().catch(err => console.error('Playback error:', err));
+        }
+      });
+
+      sourceBuffer.addEventListener('error', (e) => {
+        console.error('SourceBuffer error:', e);
+        stopTalking();
+      });
+
+      // Read and append chunks as they arrive
+      const reader = response.body.getReader();
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        
+        if (done) {
+          // Wait for all chunks to be appended
+          while (isAppending || audioChunks.length > 0) {
+            await new Promise(resolve => setTimeout(resolve, 10));
+          }
+          
+          if (mediaSource.readyState === 'open') {
+            mediaSource.endOfStream();
+          }
+          break;
+        }
+        
+        // Queue chunk for appending
+        audioChunks.push(value);
+        
+        // Start appending if not already doing so
+        if (!isAppending && !sourceBuffer.updating) {
+          const chunk = audioChunks.shift();
+          isAppending = true;
+          sourceBuffer.appendBuffer(chunk);
+        }
+      }
+    } catch (err) {
+      console.error('MediaSource streaming error:', err);
+      stopTalking();
+    }
+  });
+
+  currentAudio.onended = () => {
+    stopTalking();
+    URL.revokeObjectURL(audioUrl);
+    currentAudio = null;
+    mediaSource = null;
+    sourceBuffer = null;
+  };
+  
+  currentAudio.onerror = (err) => {
+    console.error('Audio playback error:', err);
+    stopTalking();
+    URL.revokeObjectURL(audioUrl);
+    currentAudio = null;
+    mediaSource = null;
+    sourceBuffer = null;
+  };
+}
+
+async function streamAudioFallback(response) {
+  // Fallback: collect chunks and play when enough data is available
+  const reader = response.body.getReader();
+  const chunks = [];
+  let totalSize = 0;
+  const minBufferSize = 16384; // 16KB minimum before starting playback
+  let hasStartedPlaying = false;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    
+    if (value) {
+      chunks.push(value);
+      totalSize += value.length;
+      
+      // Start playing as soon as we have minimum buffer
+      if (!hasStartedPlaying && totalSize >= minBufferSize) {
+        hasStartedPlaying = true;
+        const blob = new Blob(chunks, { type: 'audio/mpeg' });
+        const url = URL.createObjectURL(blob);
+        
+        currentAudio = new Audio(url);
+        currentAudio.playbackRate = 1.0;
+        
+        currentAudio.oncanplay = () => {
+          startTalking();
+          currentAudio.play().catch(err => console.error('Playback error:', err));
+        };
+        
+        currentAudio.onended = () => {
+          stopTalking();
+          URL.revokeObjectURL(url);
+          currentAudio = null;
+        };
+        
+        currentAudio.onerror = (err) => {
+          console.error('Audio error:', err);
+          stopTalking();
+          URL.revokeObjectURL(url);
+          currentAudio = null;
+        };
+      }
+    }
+    
+    if (done) break;
   }
 }
 
