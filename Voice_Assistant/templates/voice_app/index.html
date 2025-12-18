@@ -441,46 +441,88 @@ async function sendTextToServer(text) {
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let fullResponse = '', aiDiv = null;
+    let earlyTTSTriggered = false;
+    const sentenceEnders = /[.!?।॥]/;
+    const minCharsBeforeTTS = 25;
 
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
+    // Collect response and trigger TTS early
+    const streamPromise = (async () => {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
 
-      const parts = decoder.decode(value).split(/\r?\n\r?\n/).filter(Boolean);
-      for (const p of parts) {
-        try {
-          const jsonStr = p.replace(/^data:\s*/, '');
-          if (!jsonStr) continue;
+        const parts = decoder.decode(value).split(/\r?\n\r?\n/).filter(Boolean);
+        for (const p of parts) {
+          try {
+            const jsonStr = p.replace(/^data:\s*/, '');
+            if (!jsonStr) continue;
 
-          const obj = JSON.parse(jsonStr);
-          if (obj.chunk) {
-            if (!aiDiv) {
-              addMessage('ai', '...');
-              aiDiv = chatContainer.lastElementChild.querySelector('.message-bubble');
+            const obj = JSON.parse(jsonStr);
+            if (obj.chunk) {
+              if (!aiDiv) {
+                addMessage('ai', '...');
+                aiDiv = chatContainer.lastElementChild.querySelector('.message-bubble');
+              }
+              fullResponse += obj.chunk;
+              aiDiv.textContent = fullResponse;
+
+              // Trigger early TTS when we have enough content
+              if (!earlyTTSTriggered && fullResponse.length >= minCharsBeforeTTS && 
+                  sentenceEnders.test(fullResponse)) {
+                earlyTTSTriggered = true;
+                updateStatus('speaking', 'AI speaking...');
+                // Start TTS in parallel - it will process while we continue receiving
+                startTTSWhenReady(fullResponse);
+              }
+            } else if (obj.done) {
+              console.log("Finished receiving stream from server.");
+            } else if (obj.error) {
+              throw new Error(`Stream error: ${obj.error}`);
             }
-            fullResponse += obj.chunk;
-            aiDiv.textContent = fullResponse;
-          } else if (obj.done) {
-            console.log("Finished receiving stream from server.");
-          } else if (obj.error) {
-            throw new Error(`Stream error: ${obj.error}`);
+          } catch (err) {
+            console.error('Parse error:', err);
           }
-        } catch (err) {
-          console.error('Parse error:', err);
         }
       }
+    })();
+
+    // Wait for stream to complete
+    await streamPromise;
+
+    // If we didn't trigger early TTS, do it now
+    if (fullResponse && !earlyTTSTriggered) {
+      updateStatus('speaking', 'AI speaking...');
+      await speakText(fullResponse.trim());
+    } else if (earlyTTSTriggered) {
+      // Wait a moment for TTS to complete if it was started early
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
 
-    if (fullResponse) {
-      updateStatus('speaking', 'AI speaking...');
-      await speakText(fullResponse);
-    }
   } catch (err) {
     console.error('Request error:', err);
     addMessage('ai', '❌ Error: Unable to process request.');
   } finally {
     updateStatus('idle', 'Ready');
   }
+}
+
+// Helper function to start TTS when streaming completes
+let ttsQueue = Promise.resolve();
+async function startTTSWhenReady(initialText) {
+  // Queue TTS to avoid overlapping requests
+  ttsQueue = ttsQueue.then(async () => {
+    // Wait a short moment to collect more text
+    await new Promise(resolve => setTimeout(resolve, 400));
+    
+    // Get the latest full response from the message bubble
+    const aiMessages = document.querySelectorAll('.ai-message .message-bubble');
+    const latestMessage = aiMessages[aiMessages.length - 1];
+    const completeText = latestMessage ? latestMessage.textContent : initialText;
+    
+    if (completeText && completeText !== '...') {
+      await speakText(completeText.trim());
+    }
+  }).catch(err => console.error('TTS queue error:', err));
 }
 
 /* Speech Recognition */

@@ -31,7 +31,9 @@ def get_azure_client():
         _azure_client = AzureOpenAI(
             api_key=config["AZURE_OPENAI_KEY"],
             api_version=config["AZURE_OPENAI_API_VERSION"],
-            azure_endpoint=config["AZURE_OPENAI_ENDPOINT"]
+            azure_endpoint=config["AZURE_OPENAI_ENDPOINT"],
+            timeout=60.0,  # Increase timeout to 60 seconds
+            max_retries=2  # Retry failed requests
         )
     return _azure_client
 
@@ -118,30 +120,22 @@ def api_ask(request):
             for msg in history[-5:]
         )
 
-        base_personality = f"""You are Bodhita AI, a friendly female voice assistant. This is a continuous conversation.
+        base_personality = f"""You are Bodhita AI, a friendly voice assistant. Keep responses VERY brief (1-2 short sentences max).
 
-CURRENT CONTEXT:
-- This is a voice-based chat. Keep responses concise (2-3 sentences).
-- Your response MUST be a direct continuation of the previous conversation.
+RULES:
 - ALWAYS respond in HINGLISH (Roman script). NEVER use Devanagari.
-- You are a helpful, warm, and empathetic female assistant.
-- Use a feminine, friendly conversational style in your responses.
-- Recent conversation turns:
-{conversation_summary}
+- Be direct and concise - no extra explanations.
+- Use natural, conversational feminine tone.
 
-YOUR TASK:
-1. Acknowledge the user's latest message in the context of the history.
-2. If the user is asking a follow-up question, connect your answer to what was discussed. Use phrases like "Jaise hum baat kar rahe the..." or "Uske baare mein aur batane ke liye...".
-3. If the user changes the topic, acknowledge it and answer the new question.
-4. Provide accurate, factual information in a friendly, warm, and conversational feminine tone.
-5. Express empathy and understanding when appropriate.
-"""
+Context: {conversation_summary}
+
+Respond briefly and naturally."""
 
         system_prompt = base_personality
         if selected_domain != "normal":
             if not (kb_text := load_kb(selected_domain)):
                 return JsonResponse({"error": f"Knowledge base for {selected_domain} is not available"}, status=503)
-            system_prompt += f"""\n\nKNOWLEDGE BASE INSTRUCTIONS:\n- You are in {selected_domain.upper()} mode.\n- You MUST answer ONLY using the Knowledge Base below.\n- If the answer is not in the knowledge base, state that clearly, e.g., "Yeh jaankari mere pass nahi hai."\n- Refer to the conversation history for context, but derive your answer from the knowledge base.\n\n--- {selected_domain.upper()} KNOWLEDGE BASE ---\n{kb_text}\n---\n"""
+            system_prompt += f"""\n\n{selected_domain.upper()} MODE: Answer ONLY from this knowledge base. Keep it brief.\n\n{kb_text}\n"""
 
         messages = [{"role": "system", "content": system_prompt}] + history
 
@@ -153,8 +147,8 @@ YOUR TASK:
                 stream = get_azure_client().chat.completions.create(
                     model=MyConfig.envFile()["AZURE_OPENAI_DEPLOYMENT_NAME"],
                     messages=messages,
-                    max_tokens=150,
-                    temperature=0.3,
+                    max_tokens=80,  # Reduced for faster, shorter responses
+                    temperature=0.7,  # Slightly higher for more natural, faster generation
                     stream=True
                 )
 
@@ -258,119 +252,43 @@ def api_tts(request):
         ssml = f"""<speak version='1.0' xml:lang='hi-IN'><voice name='hi-IN-SwaraNeural'><prosody rate='1.2'>{html.escape(text, quote=False)}</prosody></voice></speak>"""
         logger.debug(f"Generated SSML: {ssml[:200]}...")
 
-        # Stream audio as it's being synthesized
+        # Use regular synthesis with immediate chunked streaming
         def generate_streaming_audio():
-            """Generator that yields audio chunks as they're synthesized."""
-            import queue
-            import threading
-            
-            audio_queue = queue.Queue()
-            complete_audio = bytearray()
-            synthesis_complete = threading.Event()
-            error_occurred = [None]  # Use list to allow modification in nested function
-            
-            def synthesis_callback(evt):
-                """Callback for audio data events."""
-                try:
-                    if evt.result.audio_data:
-                        audio_queue.put(bytes(evt.result.audio_data))
-                except Exception as e:
-                    error_occurred[0] = str(e)
-                    logger.error(f"Error in synthesis callback: {e}")
-            
-            def synthesis_completed(evt):
-                """Callback when synthesis is complete."""
-                synthesis_complete.set()
-                audio_queue.put(None)  # Signal end of stream
-            
-            def synthesis_canceled(evt):
-                """Callback when synthesis is canceled."""
-                error_occurred[0] = f"Synthesis canceled: {evt.result.cancellation_details.reason}"
-                logger.error(error_occurred[0])
-                synthesis_complete.set()
-                audio_queue.put(None)
-            
-            # Create synthesizer for this request with streaming events
-            config = MyConfig.envFile()
-            speech_config = speechsdk.SpeechConfig(
-                subscription=config["SPEECH_KEY"],
-                region=config["SPEECH_REGION"]
-            )
-            speech_config.speech_synthesis_voice_name = "hi-IN-SwaraNeural"
-            speech_config.set_speech_synthesis_output_format(
-                speechsdk.SpeechSynthesisOutputFormat.Audio24Khz48KBitRateMonoMp3
-            )
-            
-            synthesizer = speechsdk.SpeechSynthesizer(
-                speech_config=speech_config,
-                audio_config=None
-            )
-            
-            # Connect event handlers for streaming
-            synthesizer.synthesizing.connect(synthesis_callback)
-            synthesizer.synthesis_completed.connect(synthesis_completed)
-            synthesizer.synthesis_canceled.connect(synthesis_canceled)
-            
-            # Start synthesis in background
-            result_future = synthesizer.speak_ssml_async(ssml)
-            
-            # Yield chunks as they arrive
-            chunk_size = 4096
-            buffer = bytearray()
-            
+            """Generator that yields audio chunks immediately after synthesis."""
             try:
-                while True:
-                    # Get audio chunk from queue (with timeout to check for errors)
-                    try:
-                        chunk = audio_queue.get(timeout=0.1)
-                    except queue.Empty:
-                        if error_occurred[0]:
-                            break
-                        continue
-                    
-                    if chunk is None:  # End of stream
-                        break
-                    
-                    buffer.extend(chunk)
-                    complete_audio.extend(chunk)
-                    
-                    # Yield in smaller chunks for smoother streaming
-                    while len(buffer) >= chunk_size:
-                        yield bytes(buffer[:chunk_size])
-                        buffer = buffer[chunk_size:]
+                # Synthesize audio (this is fast with Azure)
+                result = get_speech_synthesizer().speak_ssml_async(ssml).get()
                 
-                # Yield any remaining data
-                if len(buffer) > 0:
-                    yield bytes(buffer)
-                
-                # Wait for synthesis to complete and get final result
-                result = result_future.get()
-                
-                # If we didn't get audio through events, use the result directly
-                if not complete_audio and result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
+                if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
                     audio_data = bytes(result.audio_data)
-                    complete_audio.extend(audio_data)
-                    # Yield the audio data in chunks
+                    
+                    if not audio_data:
+                        logger.error("No audio data generated by TTS synthesis.")
+                        return
+                    
+                    logger.info(f"Successfully synthesized audio. Size: {len(audio_data)} bytes. Streaming in chunks...")
+                    
+                    # Stream in small chunks for immediate playback (2KB chunks for faster start)
+                    chunk_size = 2048
                     for i in range(0, len(audio_data), chunk_size):
                         yield audio_data[i:i+chunk_size]
-                
-                # Cache the complete audio for future requests
-                if complete_audio:
+                    
+                    # Cache the complete audio for future requests
                     cache.set(
                         cache_key,
-                        {"audio": base64.b64encode(bytes(complete_audio)).decode('utf-8'), "format": "mp3"},
+                        {"audio": base64.b64encode(audio_data).decode('utf-8'), "format": "mp3"},
                         timeout=3600
                     )
-                    logger.info(f"Cached synthesized audio. Size: {len(complete_audio)} bytes")
-                
+                    logger.info(f"Cached synthesized audio.")
+                else:
+                    error_msg = f"Synthesis failed: {result.cancellation_details.reason}"
+                    if result.cancellation_details.error_details:
+                        error_msg += f" - {result.cancellation_details.error_details}"
+                    logger.error(error_msg)
+                    
             except Exception as e:
-                logger.error(f"Error during audio streaming: {e}", exc_info=True)
+                logger.error(f"Error during audio synthesis: {e}", exc_info=True)
                 raise
-            finally:
-                # Clean up event connections
-                synthesizer.synthesizing.disconnect_all()
-                synthesizer.synthesis_completed.disconnect_all()
-                synthesizer.synthesis_canceled.disconnect_all()
         
         return StreamingHttpResponse(
             generate_streaming_audio(),
